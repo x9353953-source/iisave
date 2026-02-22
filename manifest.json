@@ -1,0 +1,16 @@
+{
+  "name": "iOS 风格素材图库",
+  "short_name": "素材图库",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f7f8fa",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/color/512/cloud.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

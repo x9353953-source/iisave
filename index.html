@@ -621,7 +621,7 @@
         }
     }
 
-    async function saveImages() {
+        async function saveImages() {
         const files = document.getElementById('imgUpload').files;
         const customName = document.getElementById('imgName').value.trim();
         const category = document.getElementById('imgCategory').value.trim() || '默认分类';
@@ -636,11 +636,19 @@
                 const bgChoice = lastUsedBgColor;
                 const name = (files.length === 1 && customName) ? customName : file.name.replace(/\.[^/.]+$/, "");
                 
+                // 【核心修复】：将 File 对象转为 Base64 字符串
+                const base64Data = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = e => resolve(e.target.result);
+                    reader.onerror = e => reject(e);
+                    reader.readAsDataURL(file);
+                });
+                
                 await dbAction('readwrite', store => store.put({ 
                     id: Date.now() + '_' + Math.random().toString(36).substr(2, 5), 
                     name: name, 
                     category: category, 
-                    data: file,  
+                    data: base64Data,  // 这里存入转换好的 Base64 字符串，而不是 File 对象
                     bgColor: bgChoice,
                     timestamp: Date.now() 
                 }));
@@ -655,6 +663,7 @@
             document.getElementById('loadingOverlay').classList.remove('active');
         }
     }
+
     async function batchDelete() {
         if (appState.selectedIds.size === 0) return;
         if (!confirm(`确定删除选定的 ${appState.selectedIds.size} 项素材吗？`)) return;
@@ -850,3 +859,4 @@
 </script>
 </body>
 </html>
+

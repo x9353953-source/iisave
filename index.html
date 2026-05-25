@@ -328,6 +328,10 @@
     let db;
     const ZIP_CATEGORY = 'ZIP存储';
     const IMAGE_TYPES = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg']);
+    const PREVIEW_RENDER_LIMIT = 30;
+    const GALLERY_RENDER_BATCH_SIZE = 24;
+    const DB_WRITE_BATCH_SIZE = 120;
+    const WORK_YIELD_INTERVAL = 30;
     let imagesData = [];
     
     // 用于内存回收的数组，存储临时预览图地址
@@ -347,6 +351,7 @@
     };
 
     let pressTimer;
+    let galleryRenderToken = 0;
 
     function makeId() {
         return Date.now() + '_' + Math.random().toString(36).slice(2, 8);
@@ -436,7 +441,8 @@
         if (pillsContainer) pillsContainer.innerHTML = pillsHtml;
         if (quickSelect) quickSelect.innerHTML = quickSelectHtml; 
     }
-    function renderGallery() {
+    async function renderGallery() {
+        const renderToken = ++galleryRenderToken;
         const container = document.getElementById('galleryGrid');
         const searchQ = document.getElementById('searchInput').value.toLowerCase().trim();
         const isPaginated = document.getElementById('paginationToggle').checked;
@@ -450,7 +456,7 @@
         const emptyState = document.getElementById('emptyState');
         if (filtered.length === 0) {
             emptyState.style.display = 'block';
-            container.innerHTML = '';
+            container.replaceChildren();
             releaseUnusedObjectUrls(new Set());
             updatePaginationUI(0);
             return;
@@ -470,37 +476,78 @@
         updatePaginationUI(totalPages);
         releaseUnusedObjectUrls(new Set(displayData.map(img => img.id)));
 
-        container.innerHTML = displayData.map(img => {
-            const isSelected = appState.selectedIds.has(img.id);
-            const type = img.type || 'image';
-            const bgColor = img.bgColor || 'white';
-            const srcUrl = type === 'image' ? getItemUrl(img) : '';
-            
-            let bgClass = bgColor === 'default' ? 'checkerboard-bg' : (bgColor === 'white' ? 'white-bg' : '');
-            let bgInline = bgColor === 'black' ? 'background-color: #000000;' : (bgColor === 'white' ? 'background-color: #ffffff;' : '');
-            const mediaHtml = type === 'zip'
-                ? `<div class="card-img-box white-bg"><div class="zip-card-icon">ZIP</div></div>`
-                : `<div class="card-img-box ${bgClass}" style="${bgInline}"><img src="${srcUrl}" loading="lazy"></div>`;
-            
-            return `
-                <div class="card ${isSelected ? 'selected' : ''}" 
-                     data-id="${img.id}" data-type="${type}"
-                     oncontextmenu="event.preventDefault();"
-                     onmousedown="handlePressStart('${img.id}')" 
-                     onmouseup="handlePressEnd()" 
-                     onmouseleave="handlePressEnd()"
-                     ontouchstart="handlePressStart('${img.id}')" 
-                     ontouchend="handlePressEnd()" 
-                     ontouchcancel="handlePressEnd()"
-                     ontouchmove="handlePressEnd()">
-                    ${mediaHtml}
-                    <div class="card-info">
-                        <div class="card-title">${escapeHTML(img.name)}</div>
-                        <div class="card-tags"><span class="tag">${escapeHTML(img.category)}</span></div>
-                    </div>
-                </div>
-            `;
-        }).join('');
+        container.replaceChildren();
+        for (let i = 0; i < displayData.length; i += GALLERY_RENDER_BATCH_SIZE) {
+            if (renderToken !== galleryRenderToken) return;
+            const fragment = document.createDocumentFragment();
+            displayData.slice(i, i + GALLERY_RENDER_BATCH_SIZE).forEach(img => {
+                fragment.appendChild(createGalleryCard(img));
+            });
+            container.appendChild(fragment);
+            if (i + GALLERY_RENDER_BATCH_SIZE < displayData.length) await yieldToBrowser();
+        }
+    }
+
+    function applyCardBg(cardImgBox, bgColor) {
+        cardImgBox.style.backgroundColor = '';
+        if (bgColor === 'default') {
+            cardImgBox.classList.add('checkerboard-bg');
+        } else if (bgColor === 'black') {
+            cardImgBox.style.backgroundColor = '#000000';
+        } else {
+            cardImgBox.classList.add('white-bg');
+            cardImgBox.style.backgroundColor = '#ffffff';
+        }
+    }
+
+    function createGalleryCard(item) {
+        const isSelected = appState.selectedIds.has(item.id);
+        const type = item.type || 'image';
+        const bgColor = item.bgColor || 'white';
+        const card = document.createElement('div');
+        card.className = `card${isSelected ? ' selected' : ''}`;
+        card.dataset.id = item.id;
+        card.dataset.type = type;
+        card.oncontextmenu = event => event.preventDefault();
+        card.onmousedown = () => handlePressStart(item.id);
+        card.onmouseup = handlePressEnd;
+        card.onmouseleave = handlePressEnd;
+        card.ontouchstart = () => handlePressStart(item.id);
+        card.ontouchend = handlePressEnd;
+        card.ontouchcancel = handlePressEnd;
+        card.ontouchmove = handlePressEnd;
+
+        const mediaBox = document.createElement('div');
+        mediaBox.className = 'card-img-box';
+        if (type === 'zip') {
+            mediaBox.classList.add('white-bg');
+            const zipIcon = document.createElement('div');
+            zipIcon.className = 'zip-card-icon';
+            zipIcon.textContent = 'ZIP';
+            mediaBox.appendChild(zipIcon);
+        } else {
+            applyCardBg(mediaBox, bgColor);
+            const img = document.createElement('img');
+            img.src = getItemUrl(item);
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            mediaBox.appendChild(img);
+        }
+
+        const info = document.createElement('div');
+        info.className = 'card-info';
+        const title = document.createElement('div');
+        title.className = 'card-title';
+        title.textContent = item.name || '';
+        const tags = document.createElement('div');
+        tags.className = 'card-tags';
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = item.category || '';
+        tags.appendChild(tag);
+        info.append(title, tags);
+        card.append(mediaBox, info);
+        return card;
     }
 
     function updatePaginationUI(totalPages) {
@@ -584,7 +631,7 @@
         const newName = document.getElementById('renameInput').value.trim();
         const newCategory = document.getElementById('renameCategoryInput').value.trim() || '默认分类';
         if (!newName) return alert("名称不能为空");
-        
+
         const imgIndex = imagesData.findIndex(img => img.id === id);
         if (imgIndex > -1) {
             imagesData[imgIndex].name = newName;
@@ -643,7 +690,7 @@
 
         if (count > 0) {
             previewList.classList.add('show');
-            const rows = Array.from(files).slice(0, 80).map((file) => {
+            const rows = Array.from(files).slice(0, PREVIEW_RENDER_LIMIT).map((file) => {
                 const isZip = isZipFile(file);
                 let thumb = `<div style="width: 40px; height: 40px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--border-color); font-size: 12px; font-weight: 700;">ZIP</div>`;
                 if (!isZip && isImageFile(file)) {
@@ -659,7 +706,7 @@
                 </div>
                 `;
             });
-            if (count > 80) rows.push(`<div class="preview-item">还有 ${count - 80} 个文件，保存时会继续处理</div>`);
+            if (count > PREVIEW_RENDER_LIMIT) rows.push(`<div class="preview-item">还有 ${count - PREVIEW_RENDER_LIMIT} 个文件，保存时会继续处理</div>`);
             previewList.innerHTML = rows.join('');
         } else {
             previewList.classList.remove('show');
@@ -754,6 +801,7 @@
                 name: stripExt(name.split('/').pop()),
                 blob: new Blob([content], { type: mimeFromName(name) })
             });
+            if (items.length % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
         }
         return items;
     }
@@ -764,9 +812,24 @@
 
     async function saveRecords(records) {
         if (!records.length) return;
-        await dbAction('readwrite', store => {
-            records.forEach(record => store.put(record));
-        });
+        for (let i = 0; i < records.length; i += DB_WRITE_BATCH_SIZE) {
+            const batch = records.slice(i, i + DB_WRITE_BATCH_SIZE);
+            await dbAction('readwrite', store => {
+                batch.forEach(record => store.put(record));
+            });
+            if (i + DB_WRITE_BATCH_SIZE < records.length) await yieldToBrowser();
+        }
+    }
+
+    async function deleteRecords(ids) {
+        if (!ids.length) return;
+        for (let i = 0; i < ids.length; i += DB_WRITE_BATCH_SIZE) {
+            const batch = ids.slice(i, i + DB_WRITE_BATCH_SIZE);
+            await dbAction('readwrite', store => {
+                batch.forEach(id => store.delete(id));
+            });
+            if (i + DB_WRITE_BATCH_SIZE < ids.length) await yieldToBrowser();
+        }
     }
 
     async function saveImages() {
@@ -775,13 +838,18 @@
         const category = document.getElementById('imgCategory').value.trim() || '默认分类';
         const zipMode = document.getElementById('zipMode').value;
         if (files.length === 0) return alert('请先选择图片或 ZIP');
-        
+
         document.getElementById('loadingOverlay').classList.add('active');
         lastUsedBgColor = document.getElementById('globalBgSelect').value || 'white';
 
         try {
             let savedCount = 0;
             const records = [];
+            const flushRecords = async () => {
+                if (!records.length) return;
+                const batch = records.splice(0, records.length);
+                await saveRecords(batch);
+            };
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 const bgChoice = lastUsedBgColor;
@@ -816,7 +884,8 @@
                                 timestamp: Date.now()
                             });
                             savedCount++;
-                            if (savedCount % 40 === 0) await yieldToBrowser();
+                            if (records.length >= DB_WRITE_BATCH_SIZE) await flushRecords();
+                            if (savedCount % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
                         }
                     }
                     continue;
@@ -835,12 +904,13 @@
                     timestamp: Date.now() 
                 });
                 savedCount++;
-                if (savedCount % 40 === 0) await yieldToBrowser();
+                if (records.length >= DB_WRITE_BATCH_SIZE) await flushRecords();
+                if (savedCount % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
             }
 
             if (savedCount === 0) return alert('没有可保存的图片或 ZIP 内容');
-            await saveRecords(records);
-            
+            await flushRecords();
+
             closeModal('addModal');
             await loadData();
         } catch (err) {
@@ -855,11 +925,12 @@
         if (appState.selectedIds.size === 0) return;
         if (!confirm(`确定删除选定的 ${appState.selectedIds.size} 项素材吗？`)) return;
         
-        for (let id of appState.selectedIds) {
+        const ids = Array.from(appState.selectedIds);
+        for (let id of ids) {
             revokeItemObjectUrl(id);
-            await dbAction('readwrite', store => store.delete(id));
         }
-        
+        await deleteRecords(ids);
+
         appState.selectedIds.clear(); updateBatchUI(); loadData();
     }
 
@@ -916,10 +987,12 @@
 
     async function exportData() {
         if (imagesData.length === 0) return alert('无可导出数据');
-        document.getElementById('loadingOverlay').classList.add('active'); 
-        
+        document.getElementById('loadingOverlay').classList.add('active');
+
         try {
-            const exportArray = await Promise.all(imagesData.map(async img => {
+            const exportArray = [];
+            for (let i = 0; i < imagesData.length; i++) {
+                const img = imagesData[i];
                 let base64Data = img.data;
                 if (img.data instanceof Blob) {
                     base64Data = await blobToDataURL(img.data);
@@ -927,12 +1000,13 @@
                 // 导出时不要带上临时的 blobUrl
                 const exportItem = { ...img, data: base64Data };
                 delete exportItem.blobUrl;
-                return exportItem;
-            }));
-            
+                exportArray.push(exportItem);
+                if ((i + 1) % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
+            }
+
             const blob = new Blob([JSON.stringify(exportArray)], { type: "application/json" });
-            const url = URL.createObjectURL(blob); 
-            const a = document.createElement('a'); a.href = url; a.download = `GalleryBackup_${Date.now()}.json`; a.click(); 
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `GalleryBackup_${Date.now()}.json`; a.click();
             URL.revokeObjectURL(url);
         } catch (e) {
             alert("导出失败，文件可能过大");
@@ -986,11 +1060,17 @@
         if (!file || !confirm("导入会合并到当前图库，不会清空现有数据。继续吗？")) return;
         const reader = new FileReader();
         reader.onload = async (e) => {
+            document.getElementById('loadingOverlay').classList.add('active');
             try {
                 const rawData = JSON.parse(e.target.result);
                 const data = Array.isArray(rawData) ? rawData : (rawData.images || rawData.items || rawData.list || []);
                 const usedIds = new Set(imagesData.map(item => item.id));
-                const records = data.map((item, index) => normalizeImportedRecord(item, index, usedIds)).filter(Boolean);
+                const records = [];
+                for (let i = 0; i < data.length; i++) {
+                    const record = normalizeImportedRecord(data[i], i, usedIds);
+                    if (record) records.push(record);
+                    if ((i + 1) % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
+                }
                 if (!records.length) throw new Error('未找到可导入的素材数据');
                 await saveRecords(records);
                 alert(`导入成功，已合并 ${records.length} 条数据`);
@@ -998,6 +1078,8 @@
                 loadData();
             } catch (err) {
                 alert(`导入失败：${err.message || '文件格式错误'}`);
+            } finally {
+                document.getElementById('loadingOverlay').classList.remove('active');
             }
             event.target.value = '';
         };

@@ -1,13 +1,21 @@
 {
-  "name": "iOS 风格素材图库",
+  "name": "素材图库",
   "short_name": "素材图库",
+  "description": "本地存储水印图、ZIP 素材和旧版备份数据的素材图库。",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f7f8fa",
-  "theme_color": "#ffffff",
+  "theme_color": "#6a75ca",
   "icons": [
     {
-      "src": "https://img.icons8.com/color/512/cloud.png",
+      "src": "./icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

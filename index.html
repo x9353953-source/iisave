@@ -167,6 +167,31 @@
         .file-upload-btn { display: inline-block; padding: 8px 16px; background: #edeef9; color: var(--primary-color); border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
         .file-upload-btn.zip { background: #f4f4f6; color: var(--text-main); }
         .preview-remove { width: 28px; height: 28px; border-radius: 50%; background: #ffecec; color: var(--danger-color); font-size: 18px; line-height: 28px; text-align: center; cursor: pointer; flex: 0 0 auto; }
+        .modal-dialog.modal-md { max-width: 520px; }
+        .modal-header-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
+        .modal-header-row .modal-title { margin-bottom: 0; text-align: left; }
+        .zip-choice-actions { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 18px; }
+        .zip-pending-stats { font-size: 12px; color: var(--text-sub); line-height: 1.5; }
+        .zip-pending-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+        .zip-pending-list { height: 360px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; }
+        .zip-pending-row { height: 72px; display: grid; grid-template-columns: 28px 52px 1fr; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border-color); background: #fff; cursor: pointer; }
+        .zip-pending-row:last-child { border-bottom: none; }
+        .zip-pending-row.selected { background: #f0f2ff; box-shadow: inset 3px 0 0 var(--primary-color); }
+        .zip-pending-check { width: 18px; height: 18px; accent-color: var(--primary-color); }
+        .zip-pending-thumb { width: 48px; height: 48px; object-fit: contain; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: #fff; }
+        .zip-pending-thumb.placeholder { display: flex; align-items: center; justify-content: center; color: var(--text-sub); font-size: 11px; font-weight: 700; }
+        .zip-pending-name { font-size: 13px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .zip-pending-source { font-size: 11px; color: var(--text-sub); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .zip-pending-spacer { height: 0; }
+        .recent-deleted-list { max-height: 420px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; }
+        .recent-deleted-row { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border-color); background: #fff; }
+        .recent-deleted-row:last-child { border-bottom: none; }
+        .recent-deleted-thumb { width: 48px; height: 48px; object-fit: contain; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: #fff; }
+        .recent-deleted-thumb.placeholder { display: flex; align-items: center; justify-content: center; color: var(--text-sub); font-size: 11px; font-weight: 700; }
+        .recent-deleted-name { font-size: 13px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .recent-deleted-meta { font-size: 11px; color: var(--text-sub); margin-top: 4px; line-height: 1.4; }
+        .recent-deleted-actions { display: flex; gap: 6px; }
+        .recent-deleted-empty { padding: 28px 16px; text-align: center; color: var(--text-sub); font-size: 13px; }
         .modal-actions { display: flex; gap: 12px; margin-top: 30px; }
         .modal-btn { flex: 1; padding: 12px; border-radius: 30px; font-weight: 600; font-size: 15px; cursor: pointer;}
         .btn-cancel { background: #f5f6f8; color: var(--text-sub); }
@@ -183,13 +208,22 @@
         .category-pills { display: flex; flex-wrap: wrap; gap: 10px; align-content: flex-start; flex: 1; overflow-y: auto; }
         .cat-pill { padding: 8px 16px; background: #f5f6f8; color: var(--text-sub); border-radius: 20px; font-size: 14px; transition: all 0.2s; cursor: pointer; }
         .cat-pill.active { background: var(--primary-color); color: white; box-shadow: 0 4px 10px rgba(106, 117, 202, 0.3); }
+        .cat-pill.group { background: #eef8f2; color: #1f8f55; }
+        .cat-pill.group.active { background: #1f8f55; color: white; box-shadow: 0 4px 10px rgba(31, 143, 85, 0.25); }
+        .cat-pill.manage-selected { box-shadow: 0 0 0 2px var(--primary-color) inset; color: var(--primary-color); background: #fff; }
+        .sidebar-tools { display: none; margin-bottom: 12px; padding: 12px; background: #f7f8fa; border-radius: var(--radius-md); }
+        .sidebar-tools.show { display: block; }
+        .sidebar-tools-row { display: flex; gap: 8px; margin-top: 8px; }
+        .sidebar-tools-row .form-input { padding: 9px 10px; font-size: 13px; }
+        .chip-select { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; max-height: 92px; overflow-y: auto; }
+        .storage-stat { font-size: 12px; line-height: 1.55; color: var(--text-sub); margin-bottom: 10px; }
         .backup-area { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border-color); }
         .backup-btn { width: 100%; padding: 12px; border-radius: var(--radius-md); margin-bottom: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;}
     </style>
 </head>
 <body><div class="loading-overlay" id="loadingOverlay">
         <div class="spinner"></div>
-        <div style="color: var(--text-sub); font-size: 14px; font-weight: 600;">处理中，请稍候...</div>
+        <div id="loadingText" style="color: var(--text-sub); font-size: 14px; font-weight: 600;">处理中，请稍候...</div>
     </div>
 
     <nav class="navbar">
@@ -242,7 +276,8 @@
         <button class="btn-secondary" onclick="exitBatchMode()">取消</button>
         <span id="selectedCount" style="font-weight: 600; color: var(--text-main); font-size: 14px;">已选 0 项</span>
         <div class="batch-actions" style="display: flex; gap: 8px;">
-            <button class="btn-secondary" style="background: var(--primary-color); color: white;" onclick="batchDownload()">下载</button>
+            <button class="btn-secondary" style="background: #34c759; color: white;" onclick="openBatchCategoryModal()">分类</button>
+            <button class="btn-secondary" id="batchDownloadBtn" style="background: var(--primary-color); color: white;" onclick="batchDownload()">下载</button>
             <button class="btn-batch-del" onclick="batchDelete()">删除</button>
         </div>
     </div>
@@ -252,14 +287,32 @@
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <span class="sidebar-title">标签分类</span>
-            <button class="btn-icon" onclick="toggleSidebar()" style="font-size: 24px;">×</button>
+            <div style="display: flex; gap: 4px; align-items: center;">
+                <button class="btn-secondary" id="sidebarEditBtn" onclick="toggleSidebarEdit()">编辑</button>
+                <button class="btn-icon" onclick="toggleSidebar()" style="font-size: 24px;">×</button>
+            </div>
+        </div>
+        <div class="sidebar-tools" id="sidebarTools">
+            <div style="font-size: 12px; color: var(--text-sub);">选择标签后，可纳入大类或从大类移出</div>
+            <div class="sidebar-tools-row">
+                <input class="form-input" id="groupNameInput" placeholder="新建/重用大类名">
+            </div>
+            <div class="sidebar-tools-row">
+                <select class="form-input" id="groupSelect"></select>
+            </div>
+            <div class="sidebar-tools-row">
+                <button class="btn-secondary" onclick="addSelectedTagsToGroup()">纳入大类</button>
+                <button class="btn-secondary" onclick="removeSelectedTagsFromGroup()">移出大类</button>
+            </div>
         </div>
         <div class="category-pills" id="categoryPills"></div>
         <div class="backup-area">
              <div style="font-size: 13px; color: var(--text-sub); margin-bottom: 10px;">数据管理 (本地存储)</div>
-             <button class="backup-btn" style="background: #333; color: white;" onclick="exportData()">📤 导出备份数据</button>
-             <button class="backup-btn" style="background: #34c759; color: white;" onclick="document.getElementById('importFile').click()">📥 导入/合并旧版数据</button>
-             <input type="file" id="importFile" accept=".json" style="display: none" onchange="importData(event)">
+             <div class="storage-stat" id="storageStat">正在计算存储...</div>
+             <button class="backup-btn" id="recentDeletedBtn" style="background: #f4f4f6; color: var(--text-main);" onclick="openRecentDeletedModal()">最近删除 (0)</button>
+             <button class="backup-btn" style="background: #333; color: white;" onclick="exportData()">📤 导出 ZIP 备份</button>
+             <button class="backup-btn" style="background: #34c759; color: white;" onclick="document.getElementById('importFile').click()">📥 导入/合并备份</button>
+             <input type="file" id="importFile" accept=".zip,.json,application/zip,application/json" style="display: none" onchange="importData(event)">
         </div>
     </div><div class="modal-dialog" id="addModal">
         <div class="modal-title">新增素材</div>
@@ -311,11 +364,79 @@
         <div class="form-group">
             <label class="form-label">分类标签</label>
             <input type="text" id="renameCategoryInput" class="form-input" placeholder="输入分类">
+            <div id="renameQuickCategorySelect" class="chip-select"></div>
             <input type="hidden" id="renameTargetId">
         </div>
         <div class="modal-actions">
             <button class="modal-btn btn-cancel" onclick="closeModal('renameModal')">取消</button>
             <button class="modal-btn btn-confirm" onclick="saveRename()">确认修改</button>
+        </div>
+    </div>
+
+    <div class="modal-dialog" id="batchCategoryModal">
+        <div class="modal-title">批量分类</div>
+        <div class="form-group">
+            <label class="form-label">分类标签</label>
+            <input type="text" id="batchCategoryInput" class="form-input" placeholder="输入或选择标签">
+            <div id="batchQuickCategorySelect" class="chip-select"></div>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn btn-cancel" onclick="closeModal('batchCategoryModal')">取消</button>
+            <button class="modal-btn btn-confirm" onclick="applyBatchCategory()">确认分类</button>
+        </div>
+    </div>
+
+    <div class="modal-dialog modal-md" id="recentDeletedModal">
+        <div class="modal-header-row">
+            <div>
+                <div class="modal-title">最近删除</div>
+                <div class="zip-pending-stats" id="recentDeletedSummary">24 小时后自动永久删除</div>
+            </div>
+            <button class="btn-icon" onclick="closeModal('recentDeletedModal')" style="font-size: 22px;">×</button>
+        </div>
+        <div class="zip-pending-tools">
+            <button class="btn-secondary" id="restoreAllDeletedBtn" onclick="restoreAllDeleted()">全部恢复</button>
+            <button class="btn-secondary" id="clearDeletedBtn" style="background: #ffecec; color: var(--danger-color);" onclick="clearRecentDeleted()">一键清空</button>
+        </div>
+        <div class="recent-deleted-list" id="recentDeletedList"></div>
+    </div>
+
+    <div class="modal-dialog modal-md" id="zipImportChoiceModal">
+        <div class="modal-header-row">
+            <div>
+                <div class="modal-title">ZIP 图片已解压</div>
+                <div class="zip-pending-stats" id="zipChoiceSummary">等待分类</div>
+            </div>
+            <button class="btn-icon" onclick="cancelPendingZipImport()" style="font-size: 22px;">×</button>
+        </div>
+        <div class="zip-pending-stats">可以直接全部放入当前分类，也可以进入待分类窗口手动分批归类。</div>
+        <div class="zip-choice-actions">
+            <button class="modal-btn btn-confirm" onclick="saveAllPendingZipToCurrentCategory()">全部放入当前分类</button>
+            <button class="modal-btn btn-cancel" onclick="openPendingZipModal()">手动选择分类</button>
+        </div>
+    </div>
+
+    <div class="modal-dialog modal-md" id="zipPendingModal">
+        <div class="modal-header-row">
+            <div>
+                <div class="modal-title">待分类图片</div>
+                <div class="zip-pending-stats" id="zipPendingSummary">剩余 0 张，已选 0 张</div>
+            </div>
+            <button class="btn-icon" onclick="cancelPendingZipImport()" style="font-size: 22px;">×</button>
+        </div>
+        <div class="zip-pending-tools">
+            <button class="btn-secondary" onclick="selectVisiblePendingZip()">全选当前可见</button>
+            <button class="btn-secondary" onclick="clearPendingZipSelection()">取消选择</button>
+        </div>
+        <div class="zip-pending-list" id="zipPendingList" onscroll="renderPendingZipList()"></div>
+        <div class="form-group" style="margin-top: 16px;">
+            <label class="form-label">分类标签</label>
+            <input type="text" id="zipPendingCategoryInput" class="form-input" placeholder="输入或选择标签">
+            <div id="zipPendingQuickCategorySelect" class="chip-select"></div>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn btn-cancel" onclick="cancelPendingZipImport()">取消</button>
+            <button class="modal-btn btn-confirm" onclick="applyPendingZipCategory()">纳入素材图库</button>
         </div>
     </div>
 
@@ -331,21 +452,33 @@
 
 <script>
     const DB_NAME = 'iOSGallery_V4';
-    const DB_VERSION = 1;
+    const DB_VERSION = 0;
     let db;
+    let tagGroups = [];
     const ZIP_CATEGORY = 'ZIP存储';
     const IMAGE_TYPES = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg']);
     const PREVIEW_RENDER_LIMIT = 30;
     const GALLERY_RENDER_BATCH_SIZE = 24;
     const DB_WRITE_BATCH_SIZE = 120;
     const WORK_YIELD_INTERVAL = 30;
+    const DOWNLOAD_DELAY_MS = 1000;
+    const DELETED_RETENTION_MS = 24 * 60 * 60 * 1000;
+    const ZIP_PENDING_ROW_HEIGHT = 72;
+    const ZIP_PENDING_BUFFER = 8;
     let imagesData = [];
+    let deletedData = [];
     
     // 用于内存回收的数组，存储临时预览图地址
     let tempPreviewUrls = []; 
     let selectedUploadFiles = [];
     let objectUrlCache = new Map();
     let viewerObjectUrl = '';
+    let pendingZipRecords = [];
+    let pendingZipSelectedIds = new Set();
+    let pendingZipThumbUrls = new Map();
+    let pendingZipDefaultCategory = '默认分类';
+    let pendingZipVisibleRange = { start: 0, end: 0 };
+    let isBatchDownloading = false;
     
     // 记录上一次选定的统一底色
     let lastUsedBgColor = 'white';
@@ -355,11 +488,22 @@
         currentPage: 1,
         itemsPerPage: 10,
         isBatchMode: false,
-        selectedIds: new Set()
+        selectedIds: new Set(),
+        isSidebarEditMode: false,
+        selectedTags: new Set()
     };
 
     let pressTimer;
     let galleryRenderToken = 0;
+
+    window.addEventListener('error', event => {
+        showStartupMessage(`页面脚本错误：${event.message || '未知错误'}`);
+    });
+
+    window.addEventListener('unhandledrejection', event => {
+        const reason = event.reason;
+        showStartupMessage(`页面异步错误：${reason && reason.message ? reason.message : reason || '未知错误'}`);
+    });
 
     function makeId() {
         return Date.now() + '_' + Math.random().toString(36).slice(2, 8);
@@ -367,6 +511,14 @@
 
     function yieldToBrowser() {
         return new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    function showStartupMessage(message) {
+        const emptyState = document.getElementById('emptyState');
+        if (emptyState) {
+            emptyState.style.display = 'block';
+            emptyState.innerHTML = `<div style="font-size: 40px; margin-bottom: 10px;">!</div><p>${escapeHTML(message)}</p>`;
+        }
     }
     
     function escapeHTML(str) {
@@ -377,8 +529,13 @@
 
     function initDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open(DB_NAME, DB_VERSION);
-            request.onerror = e => { alert('数据库错误'); reject(e); };
+            if (!('indexedDB' in window)) {
+                reject(new Error('当前浏览器不支持 IndexedDB'));
+                return;
+            }
+            const request = DB_VERSION ? indexedDB.open(DB_NAME, DB_VERSION) : indexedDB.open(DB_NAME);
+            request.onerror = e => { reject(request.error || e); };
+            request.onblocked = () => { showStartupMessage('数据库被其它已打开的图库页面占用。请关闭旧页面后刷新；当前先以空图库打开。'); };
             request.onsuccess = e => { db = e.target.result; resolve(); };
             request.onupgradeneeded = e => {
                 db = e.target.result;
@@ -389,20 +546,66 @@
         });
     }
 
+    function getStoreAll(storeName) {
+        return new Promise((resolve, reject) => {
+            if (!db || !db.objectStoreNames.contains(storeName)) {
+                resolve([]);
+                return;
+            }
+            const transaction = db.transaction([storeName], 'readonly');
+            const request = transaction.objectStore(storeName).getAll();
+            request.onsuccess = () => resolve(request.result || []);
+            request.onerror = reject;
+        });
+    }
+
+    function getMetaValue(key, fallback) {
+        try {
+            const raw = localStorage.getItem(`gallery:${key}`);
+            return Promise.resolve(raw ? JSON.parse(raw) : fallback);
+        } catch (e) {
+            return Promise.resolve(fallback);
+        }
+    }
+
     async function loadData() {
-        const transaction = db.transaction(['images'], 'readonly');
-        const request = transaction.objectStore('images').getAll();
-        request.onsuccess = () => {
-            imagesData = request.result.sort((a, b) => b.timestamp - a.timestamp);
-            updateCategoryUI();
-            renderGallery();
-        };
+        const allRecords = (await getStoreAll('images')).sort((a, b) => b.timestamp - a.timestamp);
+        const now = Date.now();
+        const expiredDeletedIds = allRecords
+            .filter(item => item.deletedAt && now - item.deletedAt >= DELETED_RETENTION_MS)
+            .map(item => item.id);
+        if (expiredDeletedIds.length) {
+            await deleteRecords(expiredDeletedIds);
+        }
+        imagesData = allRecords.filter(item => !item.deletedAt);
+        deletedData = allRecords
+            .filter(item => item.deletedAt && now - item.deletedAt < DELETED_RETENTION_MS)
+            .sort((a, b) => b.deletedAt - a.deletedAt);
+        tagGroups = normalizeTagGroups(await getMetaValue('tagGroups', []));
+        updateCategoryUI();
+        renderGallery();
+        updateStorageStat();
+        updateRecentDeletedButton();
     }
 
     function dbAction(mode, actionFunc) {
         return new Promise((resolve, reject) => {
+            if (!db || !db.objectStoreNames.contains('images')) {
+                reject(new Error('数据库不可用，请刷新页面后重试'));
+                return;
+            }
             const transaction = db.transaction(['images'], mode);
             const store = transaction.objectStore('images');
+            actionFunc(store);
+            transaction.oncomplete = resolve;
+            transaction.onerror = reject;
+        });
+    }
+
+    function metaAction(mode, actionFunc) {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(['meta'], mode);
+            const store = transaction.objectStore('meta');
             actionFunc(store);
             transaction.oncomplete = resolve;
             transaction.onerror = reject;
@@ -430,24 +633,209 @@
         return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     }
 
+    function getAllCategories() {
+        return Array.from(new Set([ZIP_CATEGORY, ...imagesData.map(img => img.category).filter(Boolean)])).sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'));
+    }
+
+    function normalizeTagGroups(groups) {
+        if (!Array.isArray(groups)) return [];
+        const categories = new Set(imagesData.map(img => img.category).filter(Boolean));
+        categories.add(ZIP_CATEGORY);
+        const usedNames = new Set();
+        return groups.map(group => {
+            const name = String(group && group.name || '').trim();
+            if (!name || usedNames.has(name)) return null;
+            usedNames.add(name);
+            const tags = Array.from(new Set((group.tags || []).map(tag => String(tag).trim()).filter(tag => categories.has(tag))));
+            return { id: group.id || makeId(), name, tags };
+        }).filter(Boolean);
+    }
+
+    async function saveTagGroups() {
+        tagGroups = normalizeTagGroups(tagGroups);
+        localStorage.setItem('gallery:tagGroups', JSON.stringify(tagGroups));
+        updateCategoryUI();
+    }
+
+    function selectQuickCategory(inputId, cat) {
+        const input = document.getElementById(inputId);
+        if (input) input.value = cat;
+    }
+
+    function renderCategoryChips(containerId, inputId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = getAllCategories().map(cat => {
+            const escaped = escapeHTML(cat);
+            return `<div class="cat-pill" style="padding: 4px 10px; font-size: 12px; margin: 0; background: #edeef9; color: var(--primary-color);" onclick="selectQuickCategory('${inputId}', '${jsString(cat)}')">${escaped}</div>`;
+        }).join('');
+    }
+
+    function setLoadingText(text) {
+        const el = document.getElementById('loadingText');
+        if (el) el.textContent = text || '处理中，请稍候...';
+    }
+
+    function updateGroupSelect() {
+        const select = document.getElementById('groupSelect');
+        if (!select) return;
+        select.innerHTML = tagGroups.map(group => `<option value="${escapeHTML(group.id)}">${escapeHTML(group.name)}</option>`).join('');
+    }
+
+    function toggleSidebarEdit() {
+        appState.isSidebarEditMode = !appState.isSidebarEditMode;
+        if (!appState.isSidebarEditMode) appState.selectedTags.clear();
+        document.getElementById('sidebarTools').classList.toggle('show', appState.isSidebarEditMode);
+        document.getElementById('sidebarEditBtn').innerText = appState.isSidebarEditMode ? 'Done' : 'Edit';
+        updateCategoryUI();
+    }
+
+    let tagPressTimer;
+    function startTagPress(type, value) {
+        clearTimeout(tagPressTimer);
+        tagPressTimer = setTimeout(() => {
+            if (type === 'group') renameGroup(value);
+            else renameTag(value);
+        }, 600);
+    }
+
+    function endTagPress() {
+        clearTimeout(tagPressTimer);
+    }
+
+    function handleTagClick(cat) {
+        if (appState.isSidebarEditMode) {
+            if (cat === ZIP_CATEGORY) return alert('ZIP存储标签不可加入大类');
+            if (appState.selectedTags.has(cat)) appState.selectedTags.delete(cat);
+            else appState.selectedTags.add(cat);
+            updateCategoryUI();
+            return;
+        }
+        selectCategory(cat);
+    }
+
+    async function renameTag(oldName) {
+        const newName = prompt('Rename tag', oldName);
+        if (!newName || newName.trim() === oldName) return;
+        const cleanName = newName.trim();
+        const changed = imagesData.filter(item => item.category === oldName);
+        changed.forEach(item => item.category = cleanName);
+        await saveRecords(changed);
+        tagGroups.forEach(group => {
+            group.tags = group.tags.map(tag => tag === oldName ? cleanName : tag);
+        });
+        if (appState.currentCategory === oldName) appState.currentCategory = cleanName;
+        await saveTagGroups();
+        await loadData();
+    }
+
+    async function renameGroup(groupId) {
+        const group = tagGroups.find(item => item.id === groupId);
+        if (!group) return;
+        const newName = prompt('Rename group', group.name);
+        if (!newName || newName.trim() === group.name) return;
+        group.name = newName.trim();
+        await saveTagGroups();
+    }
+
+    async function addSelectedTagsToGroup() {
+        const tags = Array.from(appState.selectedTags);
+        if (!tags.length) return alert('请先选择标签');
+        const nameInput = document.getElementById('groupNameInput');
+        const selectedGroupId = document.getElementById('groupSelect').value;
+        const groupName = (nameInput.value || '').trim();
+        let group = groupName ? tagGroups.find(item => item.name === groupName) : tagGroups.find(item => item.id === selectedGroupId);
+        if (!group) {
+            group = { id: makeId(), name: groupName || '新大类', tags: [] };
+            tagGroups.push(group);
+        }
+        group.tags = Array.from(new Set(group.tags.concat(tags)));
+        appState.selectedTags.clear();
+        nameInput.value = '';
+        await saveTagGroups();
+    }
+
+    async function removeSelectedTagsFromGroup() {
+        const tags = new Set(appState.selectedTags);
+        if (!tags.size) return alert('请先选择标签');
+        const selectedGroupId = document.getElementById('groupSelect').value;
+        const group = tagGroups.find(item => item.id === selectedGroupId);
+        if (!group) return alert('请先选择大类');
+        group.tags = group.tags.filter(tag => !tags.has(tag));
+        appState.selectedTags.clear();
+        await saveTagGroups();
+    }
+
+    function formatBytes(bytes) {
+        if (!bytes) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let size = bytes;
+        let unit = 0;
+        while (size >= 1024 && unit < units.length - 1) {
+            size /= 1024;
+            unit++;
+        }
+        return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+    }
+
+    async function updateStorageStat() {
+        const el = document.getElementById('storageStat');
+        if (!el) return;
+        let galleryBytes = 0;
+        let deletedBytes = 0;
+        imagesData.forEach(item => {
+            if (item.data instanceof Blob) galleryBytes += item.data.size;
+            else if (typeof item.data === 'string') galleryBytes += Math.ceil(item.data.length * 0.75);
+        });
+        deletedData.forEach(item => {
+            if (item.data instanceof Blob) deletedBytes += item.data.size;
+            else if (typeof item.data === 'string') deletedBytes += Math.ceil(item.data.length * 0.75);
+        });
+        let text = `图库占用约 ${formatBytes(galleryBytes)} · ${imagesData.length} 项`;
+        if (deletedData.length) text += `<br>最近删除暂存 ${formatBytes(deletedBytes)} · ${deletedData.length} 项`;
+        if (navigator.storage && navigator.storage.estimate) {
+            try {
+                const estimate = await navigator.storage.estimate();
+                if (estimate.usage) text += `<br>浏览器已用 ${formatBytes(estimate.usage)}${estimate.quota ? ` / ${formatBytes(estimate.quota)}` : ''}`;
+            } catch (e) {}
+        }
+        el.innerHTML = text;
+    }
+
+    function updateRecentDeletedButton() {
+        const btn = document.getElementById('recentDeletedBtn');
+        if (btn) btn.textContent = `最近删除 (${deletedData.length})`;
+    }
+
     function updateCategoryUI() {
-        const categories = new Set([ZIP_CATEGORY, ...imagesData.map(img => img.category).filter(c => c)]);
+        const categories = getAllCategories();
         const pillsContainer = document.getElementById('categoryPills');
         const quickSelect = document.getElementById('quickCategorySelect'); 
         
         let pillsHtml = `<div class="cat-pill ${appState.currentCategory === '全部' ? 'active' : ''}" onclick="selectCategory('全部')">全部</div>`;
         let quickSelectHtml = ''; 
+
+        tagGroups.forEach(group => {
+            const filterKey = `group:${group.id}`;
+            const active = appState.currentCategory === filterKey ? 'active' : '';
+            pillsHtml += `<div class="cat-pill group ${active}" onmousedown="startTagPress('group','${jsString(group.id)}')" onmouseup="endTagPress()" onmouseleave="endTagPress()" ontouchstart="startTagPress('group','${jsString(group.id)}')" ontouchend="endTagPress()" ontouchcancel="endTagPress()" onclick="selectCategory('${jsString(filterKey)}')">📁 ${escapeHTML(group.name)}</div>`;
+        });
         
         categories.forEach(cat => {
             const escapedCatHTML = escapeHTML(cat);
             const safeJsStr = jsString(cat); 
+            const selected = appState.selectedTags.has(cat) ? 'manage-selected' : '';
             
-            pillsHtml += `<div class="cat-pill ${appState.currentCategory === cat ? 'active' : ''}" onclick="selectCategory('${safeJsStr}')">${escapedCatHTML}</div>`;
-            quickSelectHtml += `<div class="cat-pill" style="padding: 4px 10px; font-size: 12px; margin: 0; background: #edeef9; color: var(--primary-color);" onclick="document.getElementById('imgCategory').value = '${safeJsStr}'">${escapedCatHTML}</div>`;
+            pillsHtml += `<div class="cat-pill ${appState.currentCategory === cat ? 'active' : ''} ${selected}" onmousedown="startTagPress('tag','${safeJsStr}')" onmouseup="endTagPress()" onmouseleave="endTagPress()" ontouchstart="startTagPress('tag','${safeJsStr}')" ontouchend="endTagPress()" ontouchcancel="endTagPress()" onclick="handleTagClick('${safeJsStr}')">${escapedCatHTML}</div>`;
+            quickSelectHtml += `<div class="cat-pill" style="padding: 4px 10px; font-size: 12px; margin: 0; background: #edeef9; color: var(--primary-color);" onclick="selectQuickCategory('imgCategory', '${safeJsStr}')">${escapedCatHTML}</div>`;
         });
         
         if (pillsContainer) pillsContainer.innerHTML = pillsHtml;
         if (quickSelect) quickSelect.innerHTML = quickSelectHtml; 
+        renderCategoryChips('renameQuickCategorySelect', 'renameCategoryInput');
+        renderCategoryChips('batchQuickCategorySelect', 'batchCategoryInput');
+        renderCategoryChips('zipPendingQuickCategorySelect', 'zipPendingCategoryInput');
+        updateGroupSelect();
     }
     async function renderGallery() {
         const renderToken = ++galleryRenderToken;
@@ -457,6 +845,11 @@
         
         let filtered = imagesData.filter(img => {
             let catMatch = appState.currentCategory === '全部' || img.category === appState.currentCategory;
+            if (String(appState.currentCategory).startsWith('group:')) {
+                const groupId = appState.currentCategory.slice(6);
+                const group = tagGroups.find(item => item.id === groupId);
+                catMatch = Boolean(group && group.tags.includes(img.category));
+            }
             let searchMatch = !searchQ || String(img.name || '').toLowerCase().includes(searchQ) || String(img.category || '').toLowerCase().includes(searchQ);
             return catMatch && searchMatch;
         });
@@ -652,6 +1045,24 @@
     }
 
     function selectCategory(cat) { appState.currentCategory = cat; appState.currentPage = 1; closeAllOverlays(); renderGallery(); updateCategoryUI(); }
+
+    function openBatchCategoryModal() {
+        if (appState.selectedIds.size === 0) return alert('请先选择素材');
+        document.getElementById('batchCategoryInput').value = '';
+        renderCategoryChips('batchQuickCategorySelect', 'batchCategoryInput');
+        openModal('batchCategoryModal');
+    }
+
+    async function applyBatchCategory() {
+        const category = document.getElementById('batchCategoryInput').value.trim() || '默认分类';
+        const selected = imagesData.filter(item => appState.selectedIds.has(item.id));
+        selected.forEach(item => item.category = category);
+        await saveRecords(selected);
+        appState.selectedIds.clear();
+        closeModal('batchCategoryModal');
+        exitBatchMode();
+        await loadData();
+    }
     
     function toggleBatchMode() { 
         appState.isBatchMode = document.getElementById('batchToggle').checked; 
@@ -676,6 +1087,8 @@
         if (appState.isBatchMode) { batchBar.classList.add('show'); pagBar.classList.remove('show'); } 
         else { batchBar.classList.remove('show'); updatePaginationUI(parseInt(document.getElementById('totalPagesDisp').innerText)); }
         document.getElementById('selectedCount').innerText = `已选 ${appState.selectedIds.size} 项`;
+        const downloadBtn = document.getElementById('batchDownloadBtn');
+        if (downloadBtn) downloadBtn.disabled = isBatchDownloading || appState.selectedIds.size === 0;
     }
     
     // --- 新增：专门清理临时预览图内存的函数 ---
@@ -861,6 +1274,302 @@
         }
     }
 
+    async function softDeleteRecords(ids) {
+        const idSet = new Set(ids);
+        const deletedAt = Date.now();
+        const records = imagesData
+            .filter(item => idSet.has(item.id))
+            .map(item => ({ ...item, deletedAt }));
+        await saveRecords(records);
+    }
+
+    async function restoreDeletedRecords(ids) {
+        const idSet = new Set(ids);
+        const records = deletedData
+            .filter(item => idSet.has(item.id))
+            .map(item => {
+                const restored = { ...item };
+                delete restored.deletedAt;
+                return restored;
+            });
+        if (!records.length) return;
+        await saveRecords(records);
+        await loadData();
+        if (document.getElementById('recentDeletedModal').classList.contains('active')) {
+            renderRecentDeletedModal();
+        }
+    }
+
+    function formatDeletedAt(timestamp) {
+        return new Date(timestamp || Date.now()).toLocaleString('zh-CN', {
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function getDeletedRemainingText(item) {
+        const remaining = Math.max(0, DELETED_RETENTION_MS - (Date.now() - (item.deletedAt || Date.now())));
+        const hours = Math.max(1, Math.ceil(remaining / (60 * 60 * 1000)));
+        return `${hours} 小时后自动删除`;
+    }
+
+    function createRecentDeletedRow(item) {
+        const row = document.createElement('div');
+        row.className = 'recent-deleted-row';
+
+        let thumb;
+        if ((item.type || 'image') === 'zip') {
+            thumb = document.createElement('div');
+            thumb.className = 'recent-deleted-thumb placeholder';
+            thumb.textContent = 'ZIP';
+        } else {
+            thumb = document.createElement('img');
+            thumb.className = 'recent-deleted-thumb';
+            thumb.src = getItemUrl(item);
+            thumb.loading = 'lazy';
+            thumb.decoding = 'async';
+        }
+
+        const info = document.createElement('div');
+        const name = document.createElement('div');
+        name.className = 'recent-deleted-name';
+        name.textContent = item.name || item.originalFileName || '素材';
+        const meta = document.createElement('div');
+        meta.className = 'recent-deleted-meta';
+        meta.textContent = `${item.category || '未分类'} · ${formatDeletedAt(item.deletedAt)} 删除 · ${getDeletedRemainingText(item)}`;
+        info.append(name, meta);
+
+        const actions = document.createElement('div');
+        actions.className = 'recent-deleted-actions';
+        const restoreBtn = document.createElement('button');
+        restoreBtn.className = 'btn-secondary';
+        restoreBtn.textContent = '恢复';
+        restoreBtn.onclick = () => restoreDeletedRecords([item.id]);
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn-secondary';
+        deleteBtn.style.background = '#ffecec';
+        deleteBtn.style.color = 'var(--danger-color)';
+        deleteBtn.textContent = '删除';
+        deleteBtn.onclick = async () => {
+            if (!confirm('确定永久删除这项素材吗？')) return;
+            revokeItemObjectUrl(item.id);
+            await deleteRecords([item.id]);
+            await loadData();
+            renderRecentDeletedModal();
+        };
+        actions.append(restoreBtn, deleteBtn);
+        row.append(thumb, info, actions);
+        return row;
+    }
+
+    function renderRecentDeletedModal() {
+        const list = document.getElementById('recentDeletedList');
+        const summary = document.getElementById('recentDeletedSummary');
+        const restoreAllBtn = document.getElementById('restoreAllDeletedBtn');
+        const clearBtn = document.getElementById('clearDeletedBtn');
+        if (!list) return;
+        list.replaceChildren();
+        const hasRecords = deletedData.length > 0;
+        if (summary) summary.textContent = hasRecords ? `${deletedData.length} 项，24 小时后自动永久删除` : '没有最近删除记录';
+        if (restoreAllBtn) restoreAllBtn.disabled = !hasRecords;
+        if (clearBtn) clearBtn.disabled = !hasRecords;
+        if (!hasRecords) {
+            const empty = document.createElement('div');
+            empty.className = 'recent-deleted-empty';
+            empty.textContent = '最近删除是空的';
+            list.appendChild(empty);
+            return;
+        }
+        deletedData.forEach(item => list.appendChild(createRecentDeletedRow(item)));
+    }
+
+    function openRecentDeletedModal() {
+        renderRecentDeletedModal();
+        openModal('recentDeletedModal');
+    }
+
+    async function restoreAllDeleted() {
+        if (!deletedData.length) return;
+        await restoreDeletedRecords(deletedData.map(item => item.id));
+    }
+
+    async function clearRecentDeleted() {
+        if (!deletedData.length) return;
+        if (!confirm(`确定永久删除最近删除中的 ${deletedData.length} 项素材吗？此操作不可恢复。`)) return;
+        const ids = deletedData.map(item => item.id);
+        ids.forEach(revokeItemObjectUrl);
+        await deleteRecords(ids);
+        await loadData();
+        renderRecentDeletedModal();
+    }
+
+    function cleanupPendingZipThumbs(keepIds = new Set()) {
+        pendingZipThumbUrls.forEach((url, id) => {
+            if (!keepIds.has(id)) {
+                URL.revokeObjectURL(url);
+                pendingZipThumbUrls.delete(id);
+            }
+        });
+    }
+
+    function clearPendingZipImport() {
+        cleanupPendingZipThumbs();
+        pendingZipRecords = [];
+        pendingZipSelectedIds.clear();
+        pendingZipVisibleRange = { start: 0, end: 0 };
+        const list = document.getElementById('zipPendingList');
+        if (list) list.innerHTML = '';
+    }
+
+    function updatePendingZipSummary() {
+        const text = `剩余 ${pendingZipRecords.length} 张，已选 ${pendingZipSelectedIds.size} 张`;
+        const pendingEl = document.getElementById('zipPendingSummary');
+        const choiceEl = document.getElementById('zipChoiceSummary');
+        if (pendingEl) pendingEl.textContent = text;
+        if (choiceEl) choiceEl.textContent = `共 ${pendingZipRecords.length} 张，将使用“${pendingZipDefaultCategory}”作为当前分类`;
+    }
+
+    function openZipImportChoiceModal(records, defaultCategory) {
+        pendingZipRecords = records;
+        pendingZipSelectedIds.clear();
+        pendingZipDefaultCategory = defaultCategory || '默认分类';
+        updatePendingZipSummary();
+        openModal('zipImportChoiceModal');
+    }
+
+    async function saveAllPendingZipToCurrentCategory() {
+        if (!pendingZipRecords.length) return cancelPendingZipImport();
+        const records = pendingZipRecords.map(item => ({ ...item, category: pendingZipDefaultCategory }));
+        document.getElementById('loadingOverlay').classList.add('active');
+        setLoadingText(`正在保存 ${records.length} 张图片...`);
+        try {
+            await saveRecords(records);
+            clearPendingZipImport();
+            closeModal('zipImportChoiceModal');
+            await loadData();
+        } catch (err) {
+            console.error(err);
+            alert(err.message || '保存 ZIP 图片时发生错误');
+        } finally {
+            setLoadingText();
+            document.getElementById('loadingOverlay').classList.remove('active');
+        }
+    }
+
+    function openPendingZipModal() {
+        closeModal('zipImportChoiceModal', { keepPending: true });
+        document.getElementById('zipPendingCategoryInput').value = pendingZipDefaultCategory;
+        renderCategoryChips('zipPendingQuickCategorySelect', 'zipPendingCategoryInput');
+        updatePendingZipSummary();
+        openModal('zipPendingModal', { keepPending: true });
+        requestAnimationFrame(renderPendingZipList);
+    }
+
+    function renderPendingZipList() {
+        const list = document.getElementById('zipPendingList');
+        if (!list) return;
+        const total = pendingZipRecords.length;
+        if (!total) {
+            list.innerHTML = '<div class="preview-item">暂无待分类图片</div>';
+            cleanupPendingZipThumbs();
+            updatePendingZipSummary();
+            return;
+        }
+
+        const viewportHeight = list.clientHeight || 360;
+        const scrollTop = list.scrollTop || 0;
+        const visibleCount = Math.ceil(viewportHeight / ZIP_PENDING_ROW_HEIGHT);
+        const maxStart = Math.max(0, total - visibleCount);
+        const start = Math.min(maxStart, Math.max(0, Math.floor(scrollTop / ZIP_PENDING_ROW_HEIGHT) - ZIP_PENDING_BUFFER));
+        const end = Math.min(total, start + visibleCount + ZIP_PENDING_BUFFER * 2);
+        pendingZipVisibleRange = { start, end };
+
+        const visibleIds = new Set();
+        const rows = [];
+        rows.push(`<div class="zip-pending-spacer" style="height:${start * ZIP_PENDING_ROW_HEIGHT}px"></div>`);
+        for (let i = start; i < end; i++) {
+            const item = pendingZipRecords[i];
+            visibleIds.add(item.id);
+            if (!pendingZipThumbUrls.has(item.id)) {
+                pendingZipThumbUrls.set(item.id, URL.createObjectURL(item.data));
+            }
+            const selected = pendingZipSelectedIds.has(item.id);
+            rows.push(`
+                <div class="zip-pending-row ${selected ? 'selected' : ''}" onclick="togglePendingZipSelection('${jsString(item.id)}')">
+                    <input class="zip-pending-check" type="checkbox" ${selected ? 'checked' : ''} onclick="event.stopPropagation(); togglePendingZipSelection('${jsString(item.id)}')">
+                    <img class="zip-pending-thumb" src="${pendingZipThumbUrls.get(item.id)}" loading="lazy" decoding="async">
+                    <div>
+                        <div class="zip-pending-name" title="${escapeHTML(item.name)}">${escapeHTML(item.name)}</div>
+                        <div class="zip-pending-source" title="${escapeHTML(item.zipPath || item.originalFileName)}">${escapeHTML(item.zipSource || 'ZIP')} / ${escapeHTML(item.zipPath || item.originalFileName)}</div>
+                    </div>
+                </div>
+            `);
+        }
+        rows.push(`<div class="zip-pending-spacer" style="height:${(total - end) * ZIP_PENDING_ROW_HEIGHT}px"></div>`);
+        list.innerHTML = rows.join('');
+        cleanupPendingZipThumbs(visibleIds);
+        updatePendingZipSummary();
+    }
+
+    function togglePendingZipSelection(id) {
+        if (pendingZipSelectedIds.has(id)) pendingZipSelectedIds.delete(id);
+        else pendingZipSelectedIds.add(id);
+        renderPendingZipList();
+    }
+
+    function selectVisiblePendingZip() {
+        for (let i = pendingZipVisibleRange.start; i < pendingZipVisibleRange.end; i++) {
+            if (pendingZipRecords[i]) pendingZipSelectedIds.add(pendingZipRecords[i].id);
+        }
+        renderPendingZipList();
+    }
+
+    function clearPendingZipSelection() {
+        pendingZipSelectedIds.clear();
+        renderPendingZipList();
+    }
+
+    async function applyPendingZipCategory() {
+        if (!pendingZipSelectedIds.size) return alert('请先选择图片');
+        const category = document.getElementById('zipPendingCategoryInput').value.trim() || '默认分类';
+        const selectedIds = new Set(pendingZipSelectedIds);
+        const selectedRecords = pendingZipRecords.filter(item => selectedIds.has(item.id)).map(item => ({ ...item, category }));
+        document.getElementById('loadingOverlay').classList.add('active');
+        setLoadingText(`正在纳入 ${selectedRecords.length} 张图片...`);
+        try {
+            await saveRecords(selectedRecords);
+            selectedRecords.forEach(item => {
+                const url = pendingZipThumbUrls.get(item.id);
+                if (url) URL.revokeObjectURL(url);
+                pendingZipThumbUrls.delete(item.id);
+            });
+            pendingZipRecords = pendingZipRecords.filter(item => !selectedIds.has(item.id));
+            pendingZipSelectedIds.clear();
+            await loadData();
+            if (!pendingZipRecords.length) {
+                closeModal('zipPendingModal', { keepPending: true });
+                clearPendingZipImport();
+                return;
+            }
+            renderCategoryChips('zipPendingQuickCategorySelect', 'zipPendingCategoryInput');
+            renderPendingZipList();
+        } catch (err) {
+            console.error(err);
+            alert(err.message || '分类保存失败');
+        } finally {
+            setLoadingText();
+            document.getElementById('loadingOverlay').classList.remove('active');
+        }
+    }
+
+    function cancelPendingZipImport() {
+        clearPendingZipImport();
+        closeModal('zipImportChoiceModal', { keepPending: true });
+        closeModal('zipPendingModal', { keepPending: true });
+    }
+
     async function saveImages() {
         const files = selectedUploadFiles;
         const customName = document.getElementById('imgName').value.trim();
@@ -869,16 +1578,21 @@
         if (files.length === 0) return alert('请先选择图片或 ZIP');
 
         document.getElementById('loadingOverlay').classList.add('active');
+        setLoadingText('正在处理文件...');
         lastUsedBgColor = document.getElementById('globalBgSelect').value || 'white';
 
         try {
             let savedCount = 0;
+            const pendingRecords = [];
             const records = [];
             const flushRecords = async () => {
                 if (!records.length) return;
                 const batch = records.splice(0, records.length);
+                setLoadingText(`正在保存 ${batch.length} 条记录...`);
                 await saveRecords(batch);
             };
+            const zipFiles = files.filter(isZipFile);
+            let parsedZipIndex = 0;
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 const bgChoice = lastUsedBgColor;
@@ -897,14 +1611,16 @@
                         });
                         savedCount++;
                     } else {
+                        parsedZipIndex++;
+                        setLoadingText(`正在解压第 ${parsedZipIndex}/${zipFiles.length} 个 ZIP...`);
                         const zipImages = await parseZipImages(file);
                         for (let j = 0; j < zipImages.length; j++) {
                             const item = zipImages[j];
-                            records.push({
+                            pendingRecords.push({
                                 id: makeId(),
                                 type: 'image',
-                                name: customName ? `${customName}-${savedCount + 1}` : item.name,
-                                category: getFolderCategory(item.path, category),
+                                name: customName ? `${customName}-${pendingRecords.length + 1}` : item.name,
+                                category: category,
                                 data: item.blob,
                                 originalFileName: item.path.split('/').pop(),
                                 zipSource: file.name,
@@ -912,9 +1628,10 @@
                                 bgColor: 'white',
                                 timestamp: Date.now()
                             });
-                            savedCount++;
-                            if (records.length >= DB_WRITE_BATCH_SIZE) await flushRecords();
-                            if (savedCount % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
+                            if (pendingRecords.length % WORK_YIELD_INTERVAL === 0) {
+                                setLoadingText(`已解析 ${pendingRecords.length} 张 ZIP 图片...`);
+                                await yieldToBrowser();
+                            }
                         }
                     }
                     continue;
@@ -937,41 +1654,64 @@
                 if (savedCount % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
             }
 
-            if (savedCount === 0) return alert('没有可保存的图片或 ZIP 内容');
+            if (savedCount === 0 && pendingRecords.length === 0) return alert('没有可保存的图片或 ZIP 内容');
             await flushRecords();
 
             closeModal('addModal');
-            await loadData();
+            if (savedCount > 0) await loadData();
+            if (pendingRecords.length > 0) {
+                openZipImportChoiceModal(pendingRecords, category);
+            } else {
+                await loadData();
+            }
         } catch (err) {
             console.error(err);
             alert(err.message || "保存时发生错误，请检查存储空间");
         } finally {
+            setLoadingText();
             document.getElementById('loadingOverlay').classList.remove('active');
         }
     }
 
     async function batchDelete() {
         if (appState.selectedIds.size === 0) return;
-        if (!confirm(`确定删除选定的 ${appState.selectedIds.size} 项素材吗？`)) return;
+        if (!confirm(`确定删除选定的 ${appState.selectedIds.size} 项素材吗？可在最近删除中恢复，24 小时后自动永久删除。`)) return;
         
         const ids = Array.from(appState.selectedIds);
         for (let id of ids) {
             revokeItemObjectUrl(id);
         }
-        await deleteRecords(ids);
+        await softDeleteRecords(ids);
 
-        appState.selectedIds.clear(); updateBatchUI(); loadData();
+        appState.selectedIds.clear(); updateBatchUI(); await loadData();
     }
 
     async function batchDownload() {
-        if (appState.selectedIds.size === 0) return;
+        if (appState.selectedIds.size === 0 || isBatchDownloading) return;
+        isBatchDownloading = true;
+        updateBatchUI();
+        const downloadBtn = document.getElementById('batchDownloadBtn');
+        const oldBtnText = downloadBtn ? downloadBtn.textContent : '';
         const idArray = Array.from(appState.selectedIds);
-        for (let id of idArray) {
-            const img = imagesData.find(i => i.id === id);
-            if (img) {
+        const downloadItems = idArray.map(id => imagesData.find(i => i.id === id)).filter(Boolean);
+        document.getElementById('loadingOverlay').classList.add('active');
+        try {
+            for (let i = 0; i < downloadItems.length; i++) {
+                const img = downloadItems[i];
+                const progressText = `正在下载 ${i + 1}/${downloadItems.length}...`;
+                setLoadingText(progressText);
+                if (downloadBtn) downloadBtn.textContent = `${i + 1}/${downloadItems.length}`;
                 downloadItem(img);
-                await new Promise(resolve => setTimeout(resolve, 600));
+                if (i < downloadItems.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, DOWNLOAD_DELAY_MS));
+                }
             }
+        } finally {
+            isBatchDownloading = false;
+            if (downloadBtn) downloadBtn.textContent = oldBtnText || '下载';
+            setLoadingText();
+            document.getElementById('loadingOverlay').classList.remove('active');
+            updateBatchUI();
         }
     }
 
@@ -1014,31 +1754,123 @@
         document.body.removeChild(a);
     }
 
+    const backupCrcTable = (() => {
+        const table = new Uint32Array(256);
+        for (let i = 0; i < 256; i++) {
+            let c = i;
+            for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+            table[i] = c >>> 0;
+        }
+        return table;
+    })();
+
+    function backupCrc32(bytes) {
+        let crc = 0xffffffff;
+        for (let i = 0; i < bytes.length; i++) crc = backupCrcTable[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+        return (crc ^ 0xffffffff) >>> 0;
+    }
+
+    function pushU16(arr, value) { arr.push(value & 255, (value >>> 8) & 255); }
+    function pushU32(arr, value) { arr.push(value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255); }
+
+    async function createBackupZip(entries) {
+        const encoder = new TextEncoder();
+        const chunks = [];
+        const central = [];
+        let offset = 0;
+        for (const entry of entries) {
+            const nameBytes = encoder.encode(entry.name);
+            const dataBytes = entry.data instanceof Uint8Array ? entry.data : new Uint8Array(await entry.data.arrayBuffer());
+            const crc = backupCrc32(dataBytes);
+            const local = [];
+            pushU32(local, 0x04034b50); pushU16(local, 20); pushU16(local, 0x0800); pushU16(local, 0);
+            pushU16(local, 0); pushU16(local, 0); pushU32(local, crc); pushU32(local, dataBytes.length);
+            pushU32(local, dataBytes.length); pushU16(local, nameBytes.length); pushU16(local, 0);
+            chunks.push(new Uint8Array(local), nameBytes, dataBytes);
+            const header = [];
+            pushU32(header, 0x02014b50); pushU16(header, 20); pushU16(header, 20); pushU16(header, 0x0800);
+            pushU16(header, 0); pushU16(header, 0); pushU16(header, 0); pushU32(header, crc);
+            pushU32(header, dataBytes.length); pushU32(header, dataBytes.length); pushU16(header, nameBytes.length);
+            pushU16(header, 0); pushU16(header, 0); pushU16(header, 0); pushU16(header, 0);
+            pushU32(header, 0); pushU32(header, offset);
+            central.push(new Uint8Array(header), nameBytes);
+            offset += local.length + nameBytes.length + dataBytes.length;
+        }
+        const centralSize = central.reduce((sum, item) => sum + item.length, 0);
+        const end = [];
+        pushU32(end, 0x06054b50); pushU16(end, 0); pushU16(end, 0); pushU16(end, entries.length);
+        pushU16(end, entries.length); pushU32(end, centralSize); pushU32(end, offset); pushU16(end, 0);
+        return new Blob([...chunks, ...central, new Uint8Array(end)], { type: 'application/zip' });
+    }
+
+    async function parseBackupZip(file) {
+        const buffer = await file.arrayBuffer();
+        const view = new DataView(buffer);
+        const bytes = new Uint8Array(buffer);
+        const decoder = new TextDecoder('utf-8');
+        let eocd = -1;
+        for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 66000); i--) {
+            if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+        }
+        if (eocd < 0) throw new Error('Invalid backup ZIP');
+        const total = view.getUint16(eocd + 10, true);
+        let offset = view.getUint32(eocd + 16, true);
+        const files = new Map();
+        for (let i = 0; i < total; i++) {
+            if (view.getUint32(offset, true) !== 0x02014b50) break;
+            const method = view.getUint16(offset + 10, true);
+            const compressedSize = view.getUint32(offset + 20, true);
+            const nameLen = view.getUint16(offset + 28, true);
+            const extraLen = view.getUint16(offset + 30, true);
+            const commentLen = view.getUint16(offset + 32, true);
+            const localOffset = view.getUint32(offset + 42, true);
+            const name = decoder.decode(bytes.slice(offset + 46, offset + 46 + nameLen));
+            offset += 46 + nameLen + extraLen + commentLen;
+            if (method !== 0) throw new Error('Backup ZIP must be uncompressed');
+            if (view.getUint32(localOffset, true) !== 0x04034b50) continue;
+            const localNameLen = view.getUint16(localOffset + 26, true);
+            const localExtraLen = view.getUint16(localOffset + 28, true);
+            const dataStart = localOffset + 30 + localNameLen + localExtraLen;
+            files.set(name, bytes.slice(dataStart, dataStart + compressedSize));
+        }
+        const manifestBytes = files.get('manifest.json');
+        if (!manifestBytes) throw new Error('manifest.json not found');
+        return { manifest: JSON.parse(decoder.decode(manifestBytes)), files };
+    }
+
     async function exportData() {
         if (imagesData.length === 0) return alert('无可导出数据');
         document.getElementById('loadingOverlay').classList.add('active');
-
         try {
-            const exportArray = [];
+            const manifestItems = [];
+            const entries = [];
             for (let i = 0; i < imagesData.length; i++) {
-                const img = imagesData[i];
-                let base64Data = img.data;
-                if (img.data instanceof Blob) {
-                    base64Data = await blobToDataURL(img.data);
+                const item = imagesData[i];
+                const ext = getExt(item.originalFileName || item.name) || ((item.type || 'image') === 'zip' ? 'zip' : 'bin');
+                const filePath = 'files/' + item.id + '.' + ext;
+                let blob = item.data;
+                if (!(blob instanceof Blob)) {
+                    if (typeof blob === 'string' && blob.startsWith('data:')) blob = await (await fetch(blob)).blob();
+                    else blob = new Blob([String(blob || '')], { type: mimeFromName(item.originalFileName || item.name) });
                 }
-                // 导出时不要带上临时的 blobUrl
-                const exportItem = { ...img, data: base64Data };
-                delete exportItem.blobUrl;
-                exportArray.push(exportItem);
+                entries.push({ name: filePath, data: blob });
+                const manifestItem = { ...item, data: filePath };
+                delete manifestItem.blobUrl;
+                manifestItems.push(manifestItem);
                 if ((i + 1) % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
             }
-
-            const blob = new Blob([JSON.stringify(exportArray)], { type: "application/json" });
+            const manifest = { version: 2, exportedAt: new Date().toISOString(), items: manifestItems, tagGroups };
+            entries.unshift({ name: 'manifest.json', data: new Blob([JSON.stringify(manifest)], { type: 'application/json' }) });
+            const blob = await createBackupZip(entries);
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `GalleryBackup_${Date.now()}.json`; a.click();
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'GalleryBackup_' + Date.now() + '.zip';
+            a.click();
             URL.revokeObjectURL(url);
-        } catch (e) {
-            alert("导出失败，文件可能过大");
+        } catch (err) {
+            console.error(err);
+            alert('导出失败：' + (err.message || '文件可能过大'));
         } finally {
             document.getElementById('loadingOverlay').classList.remove('active');
         }
@@ -1086,38 +1918,66 @@
 
     async function importData(event) {
         const file = event.target.files[0];
-        if (!file || !confirm("导入会合并到当前图库，不会清空现有数据。继续吗？")) return;
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            document.getElementById('loadingOverlay').classList.add('active');
-            try {
-                const rawData = JSON.parse(e.target.result);
+        if (!file) return;
+        if (!confirm('导入会合并到当前图库，不会清空现有数据。继续吗？')) { event.target.value = ''; return; }
+        document.getElementById('loadingOverlay').classList.add('active');
+        try {
+            const usedIds = new Set(imagesData.concat(deletedData).map(item => item.id));
+            let records = [];
+            let importedGroups = [];
+            if (isZipFile(file)) {
+                const backup = await parseBackupZip(file);
+                const items = backup.manifest.items || backup.manifest.images || [];
+                importedGroups = backup.manifest.tagGroups || [];
+                for (let i = 0; i < items.length; i++) {
+                    const item = { ...items[i] };
+                    const fileBytes = backup.files.get(item.data);
+                    if (!fileBytes) continue;
+                    item.data = new Blob([fileBytes], { type: mimeFromName(item.originalFileName || item.name) });
+                    const record = normalizeImportedRecord(item, i, usedIds);
+                    if (record) records.push(record);
+                    if ((i + 1) % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
+                }
+            } else {
+                const text = await file.text();
+                const rawData = JSON.parse(text);
                 const data = Array.isArray(rawData) ? rawData : (rawData.images || rawData.items || rawData.list || []);
-                const usedIds = new Set(imagesData.map(item => item.id));
-                const records = [];
+                importedGroups = rawData.tagGroups || [];
                 for (let i = 0; i < data.length; i++) {
                     const record = normalizeImportedRecord(data[i], i, usedIds);
                     if (record) records.push(record);
                     if ((i + 1) % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
                 }
-                if (!records.length) throw new Error('未找到可导入的素材数据');
-                await saveRecords(records);
-                alert(`导入成功，已合并 ${records.length} 条数据`);
-                closeAllOverlays();
-                loadData();
-            } catch (err) {
-                alert(`导入失败：${err.message || '文件格式错误'}`);
-            } finally {
-                document.getElementById('loadingOverlay').classList.remove('active');
             }
+            if (!records.length) throw new Error('未找到可导入的素材数据');
+            await saveRecords(records);
+            imagesData = imagesData.concat(records);
+            if (Array.isArray(importedGroups) && importedGroups.length) {
+                const existing = new Map(tagGroups.map(group => [group.name, { ...group, tags: [...group.tags] }]));
+                importedGroups.forEach(group => {
+                    if (!group || !group.name) return;
+                    const current = existing.get(group.name) || { id: group.id || makeId(), name: group.name, tags: [] };
+                    current.tags = Array.from(new Set(current.tags.concat(group.tags || [])));
+                    existing.set(current.name, current);
+                });
+                tagGroups = Array.from(existing.values());
+                await saveTagGroups();
+            }
+            alert('导入成功，已合并 ' + records.length + ' 条数据');
+            closeAllOverlays();
+            await loadData();
+        } catch (err) {
+            console.error(err);
+            alert('导入失败：' + (err.message || '文件格式错误'));
+        } finally {
+            document.getElementById('loadingOverlay').classList.remove('active');
             event.target.value = '';
-        };
-        reader.readAsText(file);
+        }
     }
 
     function toggleSidebar() { const sb = document.getElementById('sidebar'); const ol = document.getElementById('overlay'); sb.classList.contains('active') ? closeAllOverlays() : (sb.classList.add('active'), ol.classList.add('active')); }
-        function openModal(modalId) { 
-        closeAllOverlays(); 
+        function openModal(modalId, options = {}) { 
+        closeAllOverlays(options); 
         document.getElementById(modalId).classList.add('active'); 
         document.getElementById('overlay').classList.add('active'); 
         
@@ -1128,7 +1988,7 @@
     }
 
     
-    function closeModal(modalId) { 
+    function closeModal(modalId, options = {}) { 
         document.getElementById(modalId).classList.remove('active'); 
         document.getElementById('overlay').classList.remove('active'); 
         
@@ -1143,11 +2003,17 @@
             document.getElementById('filePreviewList').innerHTML = '';
             document.getElementById('filePreviewList').classList.remove('show');
         }
+        if ((modalId === 'zipImportChoiceModal' || modalId === 'zipPendingModal') && !options.keepPending) {
+            clearPendingZipImport();
+        }
     }
     
-    function closeAllOverlays() { 
+    function closeAllOverlays(options = {}) { 
         document.getElementById('sidebar').classList.remove('active'); 
         document.querySelectorAll('.modal-dialog').forEach(m => {
+            if ((m.id === 'zipImportChoiceModal' || m.id === 'zipPendingModal') && m.classList.contains('active') && !options.keepPending) {
+                clearPendingZipImport();
+            }
             m.classList.remove('active');
             if (m.id === 'addModal') closeModal('addModal'); // 确保走清理逻辑
         }); 
@@ -1242,7 +2108,27 @@
         if (e.touches.length === 0) isPanning = false;
     });
 
-    initDB().then(loadData);
+    async function bootApp() {
+        try {
+            await Promise.race([
+                initDB(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('数据库打开超时')), 2500))
+            ]);
+            await loadData();
+        } catch (err) {
+            console.error(err);
+            imagesData = [];
+            deletedData = [];
+            tagGroups = normalizeTagGroups(await getMetaValue('tagGroups', []));
+            updateCategoryUI();
+            renderGallery();
+            updateStorageStat();
+            updateRecentDeletedButton();
+            showStartupMessage(`${err.message || '数据库暂时不可用'}。页面已打开，请关闭其它图库页面后刷新。`);
+        }
+    }
+
+    bootApp();
 </script>
 </body>
 </html>

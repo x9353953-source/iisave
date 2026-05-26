@@ -168,21 +168,26 @@
         .file-upload-btn.zip { background: #f4f4f6; color: var(--text-main); }
         .preview-remove { width: 28px; height: 28px; border-radius: 50%; background: #ffecec; color: var(--danger-color); font-size: 18px; line-height: 28px; text-align: center; cursor: pointer; flex: 0 0 auto; }
         .modal-dialog.modal-md { max-width: 520px; }
+        .modal-dialog.modal-wide { width: 92%; max-width: 760px; }
         .modal-header-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
         .modal-header-row .modal-title { margin-bottom: 0; text-align: left; }
         .zip-choice-actions { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 18px; }
         .zip-pending-stats { font-size: 12px; color: var(--text-sub); line-height: 1.5; }
         .zip-pending-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-        .zip-pending-list { height: 360px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; }
-        .zip-pending-row { height: 72px; display: grid; grid-template-columns: 28px 52px 1fr; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border-color); background: #fff; cursor: pointer; }
+        .zip-pending-list { height: min(62vh, 560px); overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; }
+        .zip-pending-row { height: 184px; display: grid; grid-template-columns: 28px minmax(128px, 168px) minmax(0, 1fr); align-items: center; gap: 14px; padding: 12px; border-bottom: 1px solid var(--border-color); background: #fff; cursor: pointer; }
         .zip-pending-row:last-child { border-bottom: none; }
         .zip-pending-row.selected { background: #f0f2ff; box-shadow: inset 3px 0 0 var(--primary-color); }
         .zip-pending-check { width: 18px; height: 18px; accent-color: var(--primary-color); }
-        .zip-pending-thumb { width: 48px; height: 48px; object-fit: contain; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: #fff; }
+        .zip-pending-thumb { width: 100%; height: 160px; object-fit: contain; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: #fff; cursor: zoom-in; }
         .zip-pending-thumb.placeholder { display: flex; align-items: center; justify-content: center; color: var(--text-sub); font-size: 11px; font-weight: 700; }
         .zip-pending-name { font-size: 13px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .zip-pending-source { font-size: 11px; color: var(--text-sub); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .zip-pending-spacer { height: 0; }
+        @media (max-width: 520px) {
+            .modal-dialog.modal-wide { width: 94%; padding: 18px; }
+            .zip-pending-row { grid-template-columns: 24px minmax(96px, 124px) minmax(0, 1fr); gap: 10px; padding: 10px; }
+        }
         .recent-deleted-list { max-height: 420px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; }
         .recent-deleted-row { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border-color); background: #fff; }
         .recent-deleted-row:last-child { border-bottom: none; }
@@ -416,7 +421,7 @@
         </div>
     </div>
 
-    <div class="modal-dialog modal-md" id="zipPendingModal">
+    <div class="modal-dialog modal-md modal-wide" id="zipPendingModal">
         <div class="modal-header-row">
             <div>
                 <div class="modal-title">待分类图片</div>
@@ -463,7 +468,7 @@
     const WORK_YIELD_INTERVAL = 30;
     const DOWNLOAD_DELAY_MS = 1000;
     const DELETED_RETENTION_MS = 24 * 60 * 60 * 1000;
-    const ZIP_PENDING_ROW_HEIGHT = 72;
+    const ZIP_PENDING_ROW_HEIGHT = 184;
     const ZIP_PENDING_BUFFER = 8;
     let imagesData = [];
     let deletedData = [];
@@ -1109,7 +1114,14 @@
             alert(expectedType === 'zip' ? '请选择 ZIP 压缩包' : '请选择图片文件');
         }
 
-        selectedUploadFiles = selectedUploadFiles.concat(validFiles);
+        const existingKeys = new Set(selectedUploadFiles.map(file => `${file.name}|${file.size}|${file.lastModified}`));
+        validFiles.forEach(file => {
+            const key = `${file.name}|${file.size}|${file.lastModified}`;
+            if (!existingKeys.has(key)) {
+                selectedUploadFiles.push(file);
+                existingKeys.add(key);
+            }
+        });
         event.target.value = '';
         updateFileTip();
     }
@@ -1120,7 +1132,7 @@
     }
 
     function updateFileTip() { 
-        const files = selectedUploadFiles;
+        const files = [...selectedUploadFiles];
         const count = files.length;
         document.getElementById('fileCountTip').innerText = count > 0 ? `已选择 ${count} 个文件` : '未选择'; 
         
@@ -1407,7 +1419,7 @@
 
     function cleanupPendingZipThumbs(keepIds = new Set()) {
         pendingZipThumbUrls.forEach((url, id) => {
-            if (!keepIds.has(id)) {
+            if (!keepIds.has(id) && url !== viewerObjectUrl) {
                 URL.revokeObjectURL(url);
                 pendingZipThumbUrls.delete(id);
             }
@@ -1499,7 +1511,7 @@
             rows.push(`
                 <div class="zip-pending-row ${selected ? 'selected' : ''}" onclick="togglePendingZipSelection('${jsString(item.id)}')">
                     <input class="zip-pending-check" type="checkbox" ${selected ? 'checked' : ''} onclick="event.stopPropagation(); togglePendingZipSelection('${jsString(item.id)}')">
-                    <img class="zip-pending-thumb" src="${pendingZipThumbUrls.get(item.id)}" loading="lazy" decoding="async">
+                    <img class="zip-pending-thumb" src="${pendingZipThumbUrls.get(item.id)}" loading="lazy" decoding="async" onclick="previewPendingZipImage('${jsString(item.id)}', event)" title="${escapeHTML(item.name)}">
                     <div>
                         <div class="zip-pending-name" title="${escapeHTML(item.name)}">${escapeHTML(item.name)}</div>
                         <div class="zip-pending-source" title="${escapeHTML(item.zipPath || item.originalFileName)}">${escapeHTML(item.zipSource || 'ZIP')} / ${escapeHTML(item.zipPath || item.originalFileName)}</div>
@@ -1511,6 +1523,19 @@
         list.innerHTML = rows.join('');
         cleanupPendingZipThumbs(visibleIds);
         updatePendingZipSummary();
+    }
+
+    function previewPendingZipImage(id, event) {
+        if (event) event.stopPropagation();
+        const item = pendingZipRecords.find(record => record.id === id);
+        if (!item) return;
+        let url = pendingZipThumbUrls.get(id);
+        if (!url) {
+            url = URL.createObjectURL(item.data);
+            pendingZipThumbUrls.set(id, url);
+        }
+        viewerObjectUrl = url;
+        openImageViewer(url, item.bgColor || 'white');
     }
 
     function togglePendingZipSelection(id) {
@@ -1571,7 +1596,7 @@
     }
 
     async function saveImages() {
-        const files = selectedUploadFiles;
+        const files = [...selectedUploadFiles];
         const customName = document.getElementById('imgName').value.trim();
         const category = document.getElementById('imgCategory').value.trim() || '默认分类';
         const zipMode = document.getElementById('zipMode').value;

@@ -226,8 +226,10 @@
         .subgroup-tag.active { background: #1f8f55; color: white; border-color: #1f8f55; }
         .subgroup-remove { color: var(--danger-color); font-weight: 700; padding-left: 2px; }
         .layout-tools { display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 10px; margin-bottom: 12px; }
-        .layout-list { max-height: min(58vh, 520px); overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; }
-        .layout-row { display: grid; grid-template-columns: 26px 56px minmax(0, 1fr); align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border-color); background: #fff; cursor: pointer; }
+        .layout-list { max-height: min(58vh, 520px); overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; position: relative; }
+        .layout-spacer { position: relative; width: 100%; }
+        .layout-window { position: absolute; top: 0; left: 0; right: 0; }
+        .layout-row { height: 73px; box-sizing: border-box; display: grid; grid-template-columns: 26px 56px minmax(0, 1fr); align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border-color); background: #fff; cursor: pointer; }
         .layout-row:last-child { border-bottom: none; }
         .layout-row.selected { background: #f0f2ff; box-shadow: inset 3px 0 0 var(--primary-color); }
         .layout-check { width: 18px; height: 18px; accent-color: var(--primary-color); }
@@ -421,7 +423,7 @@
             <input type="number" id="layoutPageInput" class="form-input" min="1" placeholder="页码">
         </div>
         <div class="layout-summary">页码留空时默认放到第 1 页开头；应用后只调整顺序，原分类标签不变。</div>
-        <div class="layout-list" id="layoutResultList"></div>
+        <div class="layout-list" id="layoutResultList" onscroll="scheduleRenderLayoutWindow()"></div>
         <div class="modal-actions">
             <button class="modal-btn btn-cancel" onclick="clearLayoutSelection()">清空选择</button>
             <button class="modal-btn btn-confirm" onclick="applyLayoutArrangement()">应用排版</button>
@@ -523,6 +525,9 @@
     const DELETED_RETENTION_MS = 24 * 60 * 60 * 1000;
     const ZIP_PENDING_ROW_HEIGHT = 184;
     const ZIP_PENDING_BUFFER = 8;
+    const LAYOUT_ROW_HEIGHT = 73;
+    const LAYOUT_RENDER_BUFFER = 8;
+    const fileNameCollator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
     let imagesData = [];
     let deletedData = [];
     
@@ -537,6 +542,9 @@
     let pendingZipDefaultCategory = '默认分类';
     let pendingZipDefaultBgColor = 'white';
     let pendingZipVisibleRange = { start: 0, end: 0 };
+    let layoutMatchesCache = [];
+    let layoutRenderFrame = 0;
+    let galleryVisibleIds = new Set();
     let isBatchDownloading = false;
     
     // 记录上一次选定的统一底色
@@ -964,7 +972,8 @@
         if (filtered.length === 0) {
             emptyState.style.display = 'block';
             container.replaceChildren();
-            releaseUnusedObjectUrls(new Set());
+            galleryVisibleIds = new Set();
+            releaseUnusedObjectUrls(galleryVisibleIds);
             updatePaginationUI(0);
             return;
         } else {
@@ -981,7 +990,8 @@
             displayData = filtered.slice(start, start + appState.itemsPerPage);
         }
         updatePaginationUI(totalPages);
-        releaseUnusedObjectUrls(new Set(displayData.map(img => img.id)));
+        galleryVisibleIds = new Set(displayData.map(img => img.id));
+        releaseUnusedObjectUrls(galleryVisibleIds);
 
         container.replaceChildren();
         for (let i = 0; i < displayData.length; i += GALLERY_RENDER_BATCH_SIZE) {
@@ -1175,7 +1185,7 @@
     }
 
     function naturalCompareByFileName(a, b) {
-        return getLayoutFileName(a).localeCompare(getLayoutFileName(b), 'zh-CN', { numeric: true, sensitivity: 'base' });
+        return fileNameCollator.compare(getLayoutFileName(a), getLayoutFileName(b));
     }
 
     function getLayoutMatches() {
@@ -1193,32 +1203,76 @@
         appState.layoutSelectedIds.clear();
         document.getElementById('layoutSearchInput').value = '';
         document.getElementById('layoutPageInput').value = '';
-        renderLayoutResults();
         openModal('layoutModal');
+        renderLayoutResults();
         setTimeout(() => document.getElementById('layoutSearchInput')?.focus(), 50);
     }
 
     function renderLayoutResults() {
         const list = document.getElementById('layoutResultList');
-        const summary = document.getElementById('layoutSummary');
         if (!list) return;
-        const matches = getLayoutMatches();
-        if (summary) summary.textContent = `显示 ${matches.length} 项，已选 ${appState.layoutSelectedIds.size} 项`;
-        list.replaceChildren();
-        if (!matches.length) {
+        layoutMatchesCache = getLayoutMatches();
+        list.scrollTop = 0;
+        renderLayoutWindow();
+    }
+
+    function updateLayoutSummary() {
+        const summary = document.getElementById('layoutSummary');
+        if (summary) summary.textContent = `显示 ${layoutMatchesCache.length} 项，已选 ${appState.layoutSelectedIds.size} 项`;
+    }
+
+    function scheduleRenderLayoutWindow() {
+        if (layoutRenderFrame) return;
+        layoutRenderFrame = requestAnimationFrame(() => {
+            layoutRenderFrame = 0;
+            renderLayoutWindow();
+        });
+    }
+
+    function renderLayoutWindow() {
+        const list = document.getElementById('layoutResultList');
+        if (!list) return;
+        updateLayoutSummary();
+        const previousScrollTop = list.scrollTop;
+        if (!layoutMatchesCache.length) {
             const empty = document.createElement('div');
             empty.className = 'layout-empty';
             empty.textContent = '没有匹配文件名的素材';
+            list.replaceChildren();
             list.appendChild(empty);
+            releaseUnusedObjectUrls(galleryVisibleIds);
             return;
         }
-        matches.forEach(item => list.appendChild(createLayoutRow(item)));
+
+        const viewportHeight = list.clientHeight || 520;
+        const start = Math.max(0, Math.floor(list.scrollTop / LAYOUT_ROW_HEIGHT) - LAYOUT_RENDER_BUFFER);
+        const end = Math.min(layoutMatchesCache.length, Math.ceil((list.scrollTop + viewportHeight) / LAYOUT_ROW_HEIGHT) + LAYOUT_RENDER_BUFFER);
+        const visibleLayoutIds = new Set();
+        const spacer = document.createElement('div');
+        spacer.className = 'layout-spacer';
+        spacer.style.height = `${layoutMatchesCache.length * LAYOUT_ROW_HEIGHT}px`;
+
+        const windowEl = document.createElement('div');
+        windowEl.className = 'layout-window';
+        windowEl.style.transform = `translateY(${start * LAYOUT_ROW_HEIGHT}px)`;
+        const fragment = document.createDocumentFragment();
+        for (let i = start; i < end; i++) {
+            const item = layoutMatchesCache[i];
+            visibleLayoutIds.add(item.id);
+            fragment.appendChild(createLayoutRow(item));
+        }
+        windowEl.appendChild(fragment);
+        spacer.appendChild(windowEl);
+        list.replaceChildren(spacer);
+        if (list.scrollTop !== previousScrollTop) list.scrollTop = previousScrollTop;
+        releaseUnusedObjectUrls(new Set([...galleryVisibleIds, ...visibleLayoutIds]));
     }
 
     function createLayoutRow(item) {
         const selected = appState.layoutSelectedIds.has(item.id);
         const row = document.createElement('div');
         row.className = `layout-row${selected ? ' selected' : ''}`;
+        row.dataset.id = item.id;
         row.onclick = () => toggleLayoutSelection(item.id);
 
         const check = document.createElement('input');
@@ -1258,12 +1312,19 @@
     function toggleLayoutSelection(id) {
         if (appState.layoutSelectedIds.has(id)) appState.layoutSelectedIds.delete(id);
         else appState.layoutSelectedIds.add(id);
-        renderLayoutResults();
+        updateLayoutSummary();
+        document.querySelectorAll('#layoutResultList .layout-row').forEach(row => {
+            if (row.dataset.id !== id) return;
+            const selected = appState.layoutSelectedIds.has(id);
+            row.classList.toggle('selected', selected);
+            const check = row.querySelector('.layout-check');
+            if (check) check.checked = selected;
+        });
     }
 
     function clearLayoutSelection() {
         appState.layoutSelectedIds.clear();
-        renderLayoutResults();
+        renderLayoutWindow();
     }
 
     async function applyLayoutArrangement() {
@@ -1275,15 +1336,41 @@
         const targetPage = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
         const insertIndex = Math.min((targetPage - 1) * appState.itemsPerPage, remainingItems.length);
         const arranged = remainingItems.slice(0, insertIndex).concat(selectedItems, remainingItems.slice(insertIndex));
-        const baseTime = Math.max(Date.now(), ...arranged.map(item => Number(item.timestamp) || 0)) + arranged.length + 1;
-        arranged.forEach((item, index) => {
-            item.timestamp = baseTime - index;
-        });
-        await saveRecords(arranged);
+        const remainingTimestamps = remainingItems.map(item => Number(item.timestamp)).filter(Number.isFinite);
+        const timestampMax = Math.max(Date.now(), ...remainingTimestamps);
+        const timestampMin = Math.min(Date.now(), ...remainingTimestamps);
+        let recordsToSave = selectedItems;
+
+        if (!remainingItems.length) {
+            const baseTime = Date.now() + selectedItems.length + 1;
+            selectedItems.forEach((item, index) => {
+                item.timestamp = baseTime - index;
+            });
+        } else {
+            const upperNeighbor = remainingItems[insertIndex - 1];
+            const lowerNeighbor = remainingItems[insertIndex];
+            const upper = upperNeighbor ? Number(upperNeighbor.timestamp) : timestampMax + selectedItems.length + 1;
+            const lower = lowerNeighbor ? Number(lowerNeighbor.timestamp) : timestampMin - selectedItems.length - 1;
+
+            if (Number.isFinite(upper) && Number.isFinite(lower) && upper > lower) {
+                const step = (upper - lower) / (selectedItems.length + 1);
+                selectedItems.forEach((item, index) => {
+                    item.timestamp = upper - step * (index + 1);
+                });
+            } else {
+                const baseTime = Math.max(Date.now(), ...arranged.map(item => Number(item.timestamp) || 0)) + arranged.length + 1;
+                arranged.forEach((item, index) => {
+                    item.timestamp = baseTime - index;
+                });
+                recordsToSave = arranged;
+            }
+        }
+        await saveRecords(recordsToSave);
+        imagesData = arranged;
         appState.layoutSelectedIds.clear();
         appState.currentPage = targetPage;
         closeModal('layoutModal');
-        await loadData();
+        renderGallery();
     }
 
     function toggleBatchMode() {
@@ -2246,6 +2333,17 @@
         }
     }
 
+    function clearLayoutRenderCache() {
+        if (layoutRenderFrame) {
+            cancelAnimationFrame(layoutRenderFrame);
+            layoutRenderFrame = 0;
+        }
+        layoutMatchesCache = [];
+        const list = document.getElementById('layoutResultList');
+        if (list) list.replaceChildren();
+        releaseUnusedObjectUrls(galleryVisibleIds);
+    }
+
     
     function closeModal(modalId, options = {}) { 
         document.getElementById(modalId).classList.remove('active'); 
@@ -2265,6 +2363,9 @@
         if ((modalId === 'zipImportChoiceModal' || modalId === 'zipPendingModal') && !options.keepPending) {
             clearPendingZipImport();
         }
+        if (modalId === 'layoutModal') {
+            clearLayoutRenderCache();
+        }
     }
     
     function closeAllOverlays(options = {}) { 
@@ -2273,6 +2374,7 @@
             if ((m.id === 'zipImportChoiceModal' || m.id === 'zipPendingModal') && m.classList.contains('active') && !options.keepPending) {
                 clearPendingZipImport();
             }
+            if (m.id === 'layoutModal') clearLayoutRenderCache();
             m.classList.remove('active');
             if (m.id === 'addModal') closeModal('addModal'); // 确保走清理逻辑
         }); 

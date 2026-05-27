@@ -221,6 +221,22 @@
         .sidebar-tools-row { display: flex; gap: 8px; margin-top: 8px; }
         .sidebar-tools-row .form-input { padding: 9px 10px; font-size: 13px; }
         .chip-select { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; max-height: 92px; overflow-y: auto; }
+        .subgroup-tags { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 8px; margin: -2px 0 6px 12px; padding: 10px; background: #f6faf8; border-radius: var(--radius-md); border: 1px solid #e1f1e8; }
+        .subgroup-tag { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 14px; background: #ffffff; color: #1f8f55; font-size: 12px; border: 1px solid #d6eadf; cursor: pointer; }
+        .subgroup-tag.active { background: #1f8f55; color: white; border-color: #1f8f55; }
+        .subgroup-remove { color: var(--danger-color); font-weight: 700; padding-left: 2px; }
+        .layout-tools { display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 10px; margin-bottom: 12px; }
+        .layout-list { max-height: min(58vh, 520px); overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; }
+        .layout-row { display: grid; grid-template-columns: 26px 56px minmax(0, 1fr); align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border-color); background: #fff; cursor: pointer; }
+        .layout-row:last-child { border-bottom: none; }
+        .layout-row.selected { background: #f0f2ff; box-shadow: inset 3px 0 0 var(--primary-color); }
+        .layout-check { width: 18px; height: 18px; accent-color: var(--primary-color); }
+        .layout-thumb { width: 52px; height: 52px; object-fit: contain; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: #fff; }
+        .layout-thumb.placeholder { display: flex; align-items: center; justify-content: center; color: var(--text-sub); font-size: 11px; font-weight: 700; }
+        .layout-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .layout-meta { font-size: 11px; color: var(--text-sub); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .layout-summary { font-size: 12px; color: var(--text-sub); margin: 8px 0 12px; line-height: 1.45; }
+        .layout-empty { padding: 26px 14px; text-align: center; color: var(--text-sub); font-size: 13px; }
         .storage-stat { font-size: 12px; line-height: 1.55; color: var(--text-sub); margin-bottom: 10px; }
         .backup-area { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border-color); }
         .backup-btn { width: 100%; padding: 12px; border-radius: var(--radius-md); margin-bottom: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;}
@@ -237,6 +253,7 @@
             <span class="nav-title">素材图库</span>
         </div>
         <div class="nav-right">
+            <button class="btn-secondary" onclick="openLayoutModal()">排版</button>
             <button class="btn-primary" onclick="openModal('addModal')">+ 新增记录</button>
         </div>
     </nav><div class="toolbar-container">
@@ -298,7 +315,7 @@
             </div>
         </div>
         <div class="sidebar-tools" id="sidebarTools">
-            <div style="font-size: 12px; color: var(--text-sub);">选择标签后，可纳入大类或从大类移出</div>
+            <div style="font-size: 12px; color: var(--text-sub);">选择标签后，可纳入大类；点开大类可移出或删除大类</div>
             <div class="sidebar-tools-row">
                 <input class="form-input" id="groupNameInput" placeholder="新建/重用大类名">
             </div>
@@ -391,6 +408,26 @@
         </div>
     </div>
 
+    <div class="modal-dialog modal-md" id="layoutModal">
+        <div class="modal-header-row">
+            <div>
+                <div class="modal-title">按文件名排版</div>
+                <div class="zip-pending-stats" id="layoutSummary">搜索文件名，选择要放在一起的素材</div>
+            </div>
+            <button class="btn-icon" onclick="closeModal('layoutModal')" style="font-size: 22px;">×</button>
+        </div>
+        <div class="layout-tools">
+            <input type="text" id="layoutSearchInput" class="form-input" placeholder="搜索文件名或素材名" oninput="renderLayoutResults()">
+            <input type="number" id="layoutPageInput" class="form-input" min="1" placeholder="页码">
+        </div>
+        <div class="layout-summary">页码留空时默认放到第 1 页开头；应用后只调整顺序，原分类标签不变。</div>
+        <div class="layout-list" id="layoutResultList"></div>
+        <div class="modal-actions">
+            <button class="modal-btn btn-cancel" onclick="clearLayoutSelection()">清空选择</button>
+            <button class="modal-btn btn-confirm" onclick="applyLayoutArrangement()">应用排版</button>
+        </div>
+    </div>
+
     <div class="modal-dialog modal-md" id="recentDeletedModal">
         <div class="modal-header-row">
             <div>
@@ -415,6 +452,14 @@
             <button class="btn-icon" onclick="cancelPendingZipImport()" style="font-size: 22px;">×</button>
         </div>
         <div class="zip-pending-stats">可以直接全部放入当前分类，也可以进入待分类窗口手动分批归类。</div>
+        <div class="form-group" style="margin-top: 14px;">
+            <label class="form-label">保存底色</label>
+            <select class="form-input" id="zipChoiceBgSelect" onchange="pendingZipDefaultBgColor = normalizeBgChoice(this.value)">
+                <option value="white">纯白底色</option>
+                <option value="default">透明棋盘底色</option>
+                <option value="black">纯黑底色</option>
+            </select>
+        </div>
         <div class="zip-choice-actions">
             <button class="modal-btn btn-confirm" onclick="saveAllPendingZipToCurrentCategory()">全部放入当前分类</button>
             <button class="modal-btn btn-cancel" onclick="openPendingZipModal()">手动选择分类</button>
@@ -438,6 +483,14 @@
             <label class="form-label">分类标签</label>
             <input type="text" id="zipPendingCategoryInput" class="form-input" placeholder="输入或选择标签">
             <div id="zipPendingQuickCategorySelect" class="chip-select"></div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">保存底色</label>
+            <select class="form-input" id="zipPendingBgSelect">
+                <option value="white">纯白底色</option>
+                <option value="default">透明棋盘底色</option>
+                <option value="black">纯黑底色</option>
+            </select>
         </div>
         <div class="modal-actions">
             <button class="modal-btn btn-cancel" onclick="cancelPendingZipImport()">取消</button>
@@ -482,6 +535,7 @@
     let pendingZipSelectedIds = new Set();
     let pendingZipThumbUrls = new Map();
     let pendingZipDefaultCategory = '默认分类';
+    let pendingZipDefaultBgColor = 'white';
     let pendingZipVisibleRange = { start: 0, end: 0 };
     let isBatchDownloading = false;
     
@@ -495,7 +549,9 @@
         isBatchMode: false,
         selectedIds: new Set(),
         isSidebarEditMode: false,
-        selectedTags: new Set()
+        selectedTags: new Set(),
+        expandedGroupId: '',
+        layoutSelectedIds: new Set()
     };
 
     let pressTimer;
@@ -719,6 +775,17 @@
         selectCategory(cat);
     }
 
+    function handleGroupClick(groupId) {
+        const filterKey = `group:${groupId}`;
+        appState.expandedGroupId = appState.expandedGroupId === groupId ? '' : groupId;
+        appState.currentCategory = filterKey;
+        appState.currentPage = 1;
+        const groupSelect = document.getElementById('groupSelect');
+        if (groupSelect) groupSelect.value = groupId;
+        renderGallery();
+        updateCategoryUI();
+    }
+
     async function renameTag(oldName) {
         const newName = prompt('Rename tag', oldName);
         if (!newName || newName.trim() === oldName) return;
@@ -755,6 +822,7 @@
             tagGroups.push(group);
         }
         group.tags = Array.from(new Set(group.tags.concat(tags)));
+        appState.expandedGroupId = group.id;
         appState.selectedTags.clear();
         nameInput.value = '';
         await saveTagGroups();
@@ -769,6 +837,24 @@
         group.tags = group.tags.filter(tag => !tags.has(tag));
         appState.selectedTags.clear();
         await saveTagGroups();
+    }
+
+    async function removeTagFromGroup(groupId, tagName) {
+        const group = tagGroups.find(item => item.id === groupId);
+        if (!group) return;
+        group.tags = group.tags.filter(tag => tag !== tagName);
+        await saveTagGroups();
+    }
+
+    async function deleteGroup(groupId) {
+        const group = tagGroups.find(item => item.id === groupId);
+        if (!group) return;
+        if (!confirm(`确定删除大类“${group.name}”吗？素材原分类不会改变。`)) return;
+        tagGroups = tagGroups.filter(item => item.id !== groupId);
+        if (appState.currentCategory === `group:${groupId}`) appState.currentCategory = '全部';
+        if (appState.expandedGroupId === groupId) appState.expandedGroupId = '';
+        await saveTagGroups();
+        renderGallery();
     }
 
     function formatBytes(bytes) {
@@ -823,7 +909,19 @@
         tagGroups.forEach(group => {
             const filterKey = `group:${group.id}`;
             const active = appState.currentCategory === filterKey ? 'active' : '';
-            pillsHtml += `<div class="cat-pill group ${active}" onmousedown="startTagPress('group','${jsString(group.id)}')" onmouseup="endTagPress()" onmouseleave="endTagPress()" ontouchstart="startTagPress('group','${jsString(group.id)}')" ontouchend="endTagPress()" ontouchcancel="endTagPress()" onclick="selectCategory('${jsString(filterKey)}')">📁 ${escapeHTML(group.name)}</div>`;
+            const expanded = appState.expandedGroupId === group.id;
+            pillsHtml += `<div class="cat-pill group ${active}" onmousedown="startTagPress('group','${jsString(group.id)}')" onmouseup="endTagPress()" onmouseleave="endTagPress()" ontouchstart="startTagPress('group','${jsString(group.id)}')" ontouchend="endTagPress()" ontouchcancel="endTagPress()" onclick="handleGroupClick('${jsString(group.id)}')">📁 ${escapeHTML(group.name)}${group.tags.length ? ` · ${group.tags.length}` : ''}</div>`;
+            if (expanded) {
+                const childTags = group.tags.length
+                    ? group.tags.map(tag => {
+                        const activeChild = appState.currentCategory === tag ? 'active' : '';
+                        const removeBtn = appState.isSidebarEditMode ? `<span class="subgroup-remove" onclick="event.stopPropagation(); removeTagFromGroup('${jsString(group.id)}','${jsString(tag)}')">×</span>` : '';
+                        return `<span class="subgroup-tag ${activeChild}" onclick="handleTagClick('${jsString(tag)}')">${escapeHTML(tag)}${removeBtn}</span>`;
+                    }).join('')
+                    : '<span class="subgroup-tag">暂无小类标签</span>';
+                const deleteGroupBtn = appState.isSidebarEditMode ? `<span class="subgroup-tag" style="color: var(--danger-color);" onclick="deleteGroup('${jsString(group.id)}')">删除大类</span>` : '';
+                pillsHtml += `<div class="subgroup-tags">${childTags}${deleteGroupBtn}</div>`;
+            }
         });
         
         categories.forEach(cat => {
@@ -855,7 +953,10 @@
                 const group = tagGroups.find(item => item.id === groupId);
                 catMatch = Boolean(group && group.tags.includes(img.category));
             }
-            let searchMatch = !searchQ || String(img.name || '').toLowerCase().includes(searchQ) || String(img.category || '').toLowerCase().includes(searchQ);
+            let searchMatch = !searchQ
+                || String(img.name || '').toLowerCase().includes(searchQ)
+                || String(img.originalFileName || '').toLowerCase().includes(searchQ)
+                || String(img.category || '').toLowerCase().includes(searchQ);
             return catMatch && searchMatch;
         });
 
@@ -1068,9 +1169,125 @@
         exitBatchMode();
         await loadData();
     }
-    
-    function toggleBatchMode() { 
-        appState.isBatchMode = document.getElementById('batchToggle').checked; 
+
+    function getLayoutFileName(item) {
+        return item.originalFileName || item.zipPath || item.name || '';
+    }
+
+    function naturalCompareByFileName(a, b) {
+        return getLayoutFileName(a).localeCompare(getLayoutFileName(b), 'zh-CN', { numeric: true, sensitivity: 'base' });
+    }
+
+    function getLayoutMatches() {
+        const query = (document.getElementById('layoutSearchInput')?.value || '').toLowerCase().trim();
+        return imagesData
+            .filter(item => {
+                const fileName = String(getLayoutFileName(item)).toLowerCase();
+                const name = String(item.name || '').toLowerCase();
+                return !query || fileName.includes(query) || name.includes(query);
+            })
+            .sort(naturalCompareByFileName);
+    }
+
+    function openLayoutModal() {
+        appState.layoutSelectedIds.clear();
+        document.getElementById('layoutSearchInput').value = '';
+        document.getElementById('layoutPageInput').value = '';
+        renderLayoutResults();
+        openModal('layoutModal');
+        setTimeout(() => document.getElementById('layoutSearchInput')?.focus(), 50);
+    }
+
+    function renderLayoutResults() {
+        const list = document.getElementById('layoutResultList');
+        const summary = document.getElementById('layoutSummary');
+        if (!list) return;
+        const matches = getLayoutMatches();
+        if (summary) summary.textContent = `显示 ${matches.length} 项，已选 ${appState.layoutSelectedIds.size} 项`;
+        list.replaceChildren();
+        if (!matches.length) {
+            const empty = document.createElement('div');
+            empty.className = 'layout-empty';
+            empty.textContent = '没有匹配文件名的素材';
+            list.appendChild(empty);
+            return;
+        }
+        matches.forEach(item => list.appendChild(createLayoutRow(item)));
+    }
+
+    function createLayoutRow(item) {
+        const selected = appState.layoutSelectedIds.has(item.id);
+        const row = document.createElement('div');
+        row.className = `layout-row${selected ? ' selected' : ''}`;
+        row.onclick = () => toggleLayoutSelection(item.id);
+
+        const check = document.createElement('input');
+        check.type = 'checkbox';
+        check.className = 'layout-check';
+        check.checked = selected;
+        check.onclick = event => {
+            event.stopPropagation();
+            toggleLayoutSelection(item.id);
+        };
+
+        let thumb;
+        if ((item.type || 'image') === 'zip') {
+            thumb = document.createElement('div');
+            thumb.className = 'layout-thumb placeholder';
+            thumb.textContent = 'ZIP';
+        } else {
+            thumb = document.createElement('img');
+            thumb.className = 'layout-thumb';
+            thumb.src = getItemUrl(item);
+            thumb.loading = 'lazy';
+            thumb.decoding = 'async';
+        }
+
+        const info = document.createElement('div');
+        const name = document.createElement('div');
+        name.className = 'layout-name';
+        name.textContent = getLayoutFileName(item);
+        const meta = document.createElement('div');
+        meta.className = 'layout-meta';
+        meta.textContent = `${item.name || '素材'} · ${item.category || '未分类'}`;
+        info.append(name, meta);
+        row.append(check, thumb, info);
+        return row;
+    }
+
+    function toggleLayoutSelection(id) {
+        if (appState.layoutSelectedIds.has(id)) appState.layoutSelectedIds.delete(id);
+        else appState.layoutSelectedIds.add(id);
+        renderLayoutResults();
+    }
+
+    function clearLayoutSelection() {
+        appState.layoutSelectedIds.clear();
+        renderLayoutResults();
+    }
+
+    async function applyLayoutArrangement() {
+        if (!appState.layoutSelectedIds.size) return alert('请先选择要排版的素材');
+        const selectedIds = new Set(appState.layoutSelectedIds);
+        const selectedItems = imagesData.filter(item => selectedIds.has(item.id)).sort(naturalCompareByFileName);
+        const remainingItems = imagesData.filter(item => !selectedIds.has(item.id));
+        const pageValue = parseInt(document.getElementById('layoutPageInput').value, 10);
+        const targetPage = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
+        const insertIndex = Math.min((targetPage - 1) * appState.itemsPerPage, remainingItems.length);
+        const arranged = remainingItems.slice(0, insertIndex).concat(selectedItems, remainingItems.slice(insertIndex));
+        const baseTime = Math.max(Date.now(), ...arranged.map(item => Number(item.timestamp) || 0)) + arranged.length + 1;
+        arranged.forEach((item, index) => {
+            item.timestamp = baseTime - index;
+        });
+        await saveRecords(arranged);
+        appState.layoutSelectedIds.clear();
+        appState.currentPage = targetPage;
+        closeModal('layoutModal');
+        await loadData();
+    }
+
+    function toggleBatchMode() {
+        appState.isBatchMode = document.getElementById('batchToggle').checked;
         if (!appState.isBatchMode) {
             document.querySelectorAll('.card.selected').forEach(el => el.classList.remove('selected'));
         }
@@ -1443,17 +1660,30 @@
         if (choiceEl) choiceEl.textContent = `共 ${pendingZipRecords.length} 张，将使用“${pendingZipDefaultCategory}”作为当前分类`;
     }
 
-    function openZipImportChoiceModal(records, defaultCategory) {
+    function normalizeBgChoice(value) {
+        return ['white', 'default', 'black'].includes(value) ? value : 'white';
+    }
+
+    function getZipBgChoice(selectId) {
+        const select = document.getElementById(selectId);
+        return normalizeBgChoice(select ? select.value : pendingZipDefaultBgColor);
+    }
+
+    function openZipImportChoiceModal(records, defaultCategory, defaultBgColor = 'white') {
         pendingZipRecords = records;
         pendingZipSelectedIds.clear();
         pendingZipDefaultCategory = defaultCategory || '默认分类';
+        pendingZipDefaultBgColor = normalizeBgChoice(defaultBgColor);
+        document.getElementById('zipChoiceBgSelect').value = pendingZipDefaultBgColor;
         updatePendingZipSummary();
         openModal('zipImportChoiceModal');
     }
 
     async function saveAllPendingZipToCurrentCategory() {
         if (!pendingZipRecords.length) return cancelPendingZipImport();
-        const records = pendingZipRecords.map(item => ({ ...item, category: pendingZipDefaultCategory }));
+        const bgColor = getZipBgChoice('zipChoiceBgSelect');
+        pendingZipDefaultBgColor = bgColor;
+        const records = pendingZipRecords.map(item => ({ ...item, category: pendingZipDefaultCategory, bgColor }));
         document.getElementById('loadingOverlay').classList.add('active');
         setLoadingText(`正在保存 ${records.length} 张图片...`);
         try {
@@ -1471,8 +1701,10 @@
     }
 
     function openPendingZipModal() {
+        pendingZipDefaultBgColor = getZipBgChoice('zipChoiceBgSelect');
         closeModal('zipImportChoiceModal', { keepPending: true });
         document.getElementById('zipPendingCategoryInput').value = pendingZipDefaultCategory;
+        document.getElementById('zipPendingBgSelect').value = pendingZipDefaultBgColor;
         renderCategoryChips('zipPendingQuickCategorySelect', 'zipPendingCategoryInput');
         updatePendingZipSummary();
         openModal('zipPendingModal', { keepPending: true });
@@ -1559,8 +1791,10 @@
     async function applyPendingZipCategory() {
         if (!pendingZipSelectedIds.size) return alert('请先选择图片');
         const category = document.getElementById('zipPendingCategoryInput').value.trim() || '默认分类';
+        const bgColor = getZipBgChoice('zipPendingBgSelect');
+        pendingZipDefaultBgColor = bgColor;
         const selectedIds = new Set(pendingZipSelectedIds);
-        const selectedRecords = pendingZipRecords.filter(item => selectedIds.has(item.id)).map(item => ({ ...item, category }));
+        const selectedRecords = pendingZipRecords.filter(item => selectedIds.has(item.id)).map(item => ({ ...item, category, bgColor }));
         document.getElementById('loadingOverlay').classList.add('active');
         setLoadingText(`正在纳入 ${selectedRecords.length} 张图片...`);
         try {
@@ -1650,7 +1884,7 @@
                                 originalFileName: item.path.split('/').pop(),
                                 zipSource: file.name,
                                 zipPath: item.path,
-                                bgColor: 'white',
+                                bgColor: bgChoice,
                                 timestamp: Date.now()
                             });
                             if (pendingRecords.length % WORK_YIELD_INTERVAL === 0) {
@@ -1685,7 +1919,7 @@
             closeModal('addModal');
             if (savedCount > 0) await loadData();
             if (pendingRecords.length > 0) {
-                openZipImportChoiceModal(pendingRecords, category);
+                openZipImportChoiceModal(pendingRecords, category, lastUsedBgColor);
             } else {
                 await loadData();
             }

@@ -1,6 +1,6 @@
 {
-  "name": "素材图库",
-  "short_name": "素材图库",
+  "name": "ii",
+  "short_name": "ii",
   "description": "本地存储水印图、ZIP 素材和旧版备份数据的素材图库。",
   "start_url": "./index.html",
   "scope": "./",

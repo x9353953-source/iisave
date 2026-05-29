@@ -218,13 +218,15 @@
         .recent-deleted-meta { font-size: 11px; color: var(--text-sub); margin-top: 4px; line-height: 1.4; }
         .recent-deleted-actions { display: flex; gap: 6px; }
         .recent-deleted-empty { padding: 28px 16px; text-align: center; color: var(--text-sub); font-size: 13px; }
-        .duplicate-list { max-height: min(58vh, 540px); overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; }
+        .duplicate-list { height: min(58vh, 540px); overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; position: relative; }
+        .duplicate-spacer { position: relative; width: 100%; }
+        .duplicate-window { position: absolute; top: 0; left: 0; right: 0; }
         .duplicate-group { background: #fff; border-bottom: 1px solid var(--border-color); }
         .duplicate-group:last-child { border-bottom: none; }
-        .duplicate-group-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #fbfbfe; border-bottom: 1px solid var(--border-color); }
+        .duplicate-group-head { height: 44px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; background: #fbfbfe; border-bottom: 1px solid var(--border-color); }
         .duplicate-group-title { font-size: 13px; font-weight: 700; color: var(--text-main); }
         .duplicate-group-action { flex: 0 0 auto; padding: 6px 10px; border-radius: 14px; background: #edeef9; color: var(--primary-color); font-size: 12px; font-weight: 700; }
-        .duplicate-row { display: grid; grid-template-columns: 28px 60px minmax(0, 1fr); align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border-color); cursor: pointer; }
+        .duplicate-row { height: 77px; box-sizing: border-box; display: grid; grid-template-columns: 28px 60px minmax(0, 1fr); align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border-color); background: #fff; cursor: pointer; }
         .duplicate-row:last-child { border-bottom: none; }
         .duplicate-row.selected { background: #fff4f4; box-shadow: inset 3px 0 0 var(--danger-color); }
         .duplicate-check { width: 18px; height: 18px; accent-color: var(--danger-color); }
@@ -291,9 +293,16 @@
         .layout-summary { font-size: 12px; color: var(--text-sub); margin: 8px 0 12px; line-height: 1.45; }
         .layout-empty { padding: 26px 14px; text-align: center; color: var(--text-sub); font-size: 13px; }
         .cover-picker-list { max-height: min(58vh, 520px); }
-        .storage-stat { font-size: 12px; line-height: 1.55; color: var(--text-sub); margin-bottom: 10px; }
-        .backup-area { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border-color); }
-        .backup-btn { width: 100%; padding: 12px; border-radius: var(--radius-md); margin-bottom: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;}
+        .storage-stat { font-size: 12px; line-height: 1.55; color: var(--text-sub); margin-bottom: 10px; padding: 10px 12px; background: #f7f8fc; border: 1px solid #eef0f7; border-radius: var(--radius-md); }
+        .backup-area { margin-top: auto; padding-top: 14px; border-top: 1px solid rgba(106, 117, 202, 0.12); }
+        .backup-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 800; color: #5d6578; margin-bottom: 8px; letter-spacing: 0; }
+        .backup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .backup-btn { width: 100%; min-height: 38px; padding: 9px 10px; border-radius: var(--radius-md); font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; border: 1px solid transparent; box-shadow: 0 6px 14px rgba(48, 54, 94, 0.06); }
+        .backup-btn.wide { grid-column: 1 / -1; }
+        .backup-btn.neutral { background: #f7f8fc; color: #5d6578; border-color: #eceef6; box-shadow: none; }
+        .backup-btn.check { background: #eef2ff; color: var(--primary-color); border-color: #dfe4ff; box-shadow: none; }
+        .backup-btn.export { background: #2f3542; color: #fff; }
+        .backup-btn.import { background: #2fb56d; color: #fff; }
     </style>
 </head>
 <body><div class="loading-overlay" id="loadingOverlay">
@@ -393,12 +402,14 @@
         </div>
         <div class="category-pills" id="categoryPills"></div>
         <div class="backup-area">
-             <div style="font-size: 13px; color: var(--text-sub); margin-bottom: 10px;">数据管理 (本地存储)</div>
+             <div class="backup-title"><span>数据管理</span><span>本地存储</span></div>
              <div class="storage-stat" id="storageStat">正在计算存储...</div>
-             <button class="backup-btn" id="recentDeletedBtn" style="background: #f4f4f6; color: var(--text-main);" onclick="openRecentDeletedModal()">最近删除 (0)</button>
-             <button class="backup-btn" style="background: #edeef9; color: var(--primary-color);" onclick="checkDuplicateFiles()">检查已有相同文件</button>
-             <button class="backup-btn" style="background: #333; color: white;" onclick="openBackupExportModal()">📤 导出 ZIP 备份</button>
-             <button class="backup-btn" style="background: #34c759; color: white;" onclick="document.getElementById('importFile').click()">📥 导入/合并备份</button>
+             <div class="backup-actions">
+                 <button class="backup-btn neutral wide" id="recentDeletedBtn" onclick="openRecentDeletedModal()">最近删除 (0)</button>
+                 <button class="backup-btn check wide" onclick="checkDuplicateFiles()">检查已有相同文件</button>
+                 <button class="backup-btn export" onclick="openBackupExportModal()">导出备份</button>
+                 <button class="backup-btn import" onclick="document.getElementById('importFile').click()">导入合并</button>
+             </div>
              <input type="file" id="importFile" accept=".zip,.json,application/zip,application/json" style="display: none" onchange="importData(event)">
         </div>
     </div><div class="modal-dialog" id="addModal">
@@ -553,7 +564,7 @@
             <button class="btn-secondary" onclick="selectAllDuplicateExtras()">每组保留第一张</button>
             <button class="btn-secondary" onclick="clearDuplicateSelection()">取消选择</button>
         </div>
-        <div class="duplicate-list" id="duplicateCheckList"></div>
+        <div class="duplicate-list" id="duplicateCheckList" onscroll="scheduleRenderDuplicateWindow()"></div>
         <div class="modal-actions">
             <button class="modal-btn btn-cancel" onclick="closeModal('duplicateCheckModal')">不理会</button>
             <button class="modal-btn btn-confirm" id="duplicateDeleteBtn" onclick="deleteSelectedDuplicates()">删除选中 (0)</button>
@@ -648,6 +659,9 @@
     const ZIP_PENDING_BUFFER = 8;
     const LAYOUT_ROW_HEIGHT = 73;
     const LAYOUT_RENDER_BUFFER = 8;
+    const DUPLICATE_GROUP_HEADER_HEIGHT = 44;
+    const DUPLICATE_ROW_HEIGHT = 77;
+    const DUPLICATE_RENDER_BUFFER = 10;
     const fileNameCollator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
     let imagesData = [];
     let deletedData = [];
@@ -672,6 +686,9 @@
     let categoryCoverRenderFrame = 0;
     let duplicateGroupsCache = [];
     let duplicateSelectedIds = new Set();
+    let duplicateFlatItems = [];
+    let duplicateRenderFrame = 0;
+    let duplicatePreviewUrls = new Map();
     let galleryVisibleIds = new Set();
     let galleryImageObserver = null;
     let uploadPreviewFrame = 0;
@@ -3067,6 +3084,14 @@
         return Array.from(new Uint8Array(hashBuffer)).map(byte => byte.toString(16).padStart(2, '0')).join('');
     }
 
+    async function getFileSize(item) {
+        if (!item || !item.data) return 0;
+        if (item.fileSize) return item.fileSize;
+        const blob = await dataToBlob(item.data, item.originalFileName || item.name || '');
+        item.fileSize = blob.size;
+        return item.fileSize;
+    }
+
     async function getFileContentHash(item) {
         if (!item || !item.data) return '';
         if (item.contentHash) return item.contentHash;
@@ -3079,9 +3104,26 @@
     }
 
     async function findDuplicateGroups(records) {
-        const byHash = new Map();
+        const bySize = new Map();
         for (let i = 0; i < records.length; i++) {
             const item = records[i];
+            try {
+                const size = await getFileSize(item);
+                if (!size) continue;
+                if (!bySize.has(size)) bySize.set(size, []);
+                bySize.get(size).push(item);
+            } catch (err) {
+                console.warn('文件大小读取失败', item && item.id, err);
+            }
+            if ((i + 1) % WORK_YIELD_INTERVAL === 0) {
+                setLoadingText(`正在初筛文件 ${i + 1}/${records.length}...`);
+                await yieldToBrowser();
+            }
+        }
+        const candidates = Array.from(bySize.values()).filter(items => items.length > 1).flat();
+        const byHash = new Map();
+        for (let i = 0; i < candidates.length; i++) {
+            const item = candidates[i];
             try {
                 const hash = await getFileContentHash(item);
                 if (!hash) continue;
@@ -3091,7 +3133,7 @@
                 console.warn('文件检查失败', item && item.id, err);
             }
             if ((i + 1) % WORK_YIELD_INTERVAL === 0) {
-                setLoadingText(`正在检查文件 ${i + 1}/${records.length}...`);
+                setLoadingText(`正在检查候选文件 ${i + 1}/${candidates.length}...`);
                 await yieldToBrowser();
             }
         }
@@ -3145,6 +3187,17 @@
         return { uniqueRecords, skipped };
     }
 
+    function getDuplicatePreviewUrl(item) {
+        if (!item || !item.data) return '';
+        if (item.data instanceof Blob) {
+            if (!duplicatePreviewUrls.has(item.id)) {
+                duplicatePreviewUrls.set(item.id, URL.createObjectURL(item.data));
+            }
+            return duplicatePreviewUrls.get(item.id);
+        }
+        return item.data;
+    }
+
     function createDuplicatePreview(item) {
         if ((item.type || 'image') === 'zip') {
             const placeholder = document.createElement('div');
@@ -3154,9 +3207,13 @@
         }
         const img = document.createElement('img');
         img.className = 'duplicate-thumb';
-        img.src = getItemUrl(item);
+        img.src = getDuplicatePreviewUrl(item);
         img.loading = 'lazy';
         img.decoding = 'async';
+        img.onerror = () => {
+            img.alt = '预览不可用';
+            img.style.background = '#f5f6f8';
+        };
         img.onclick = event => {
             event.stopPropagation();
             openImageViewer(getItemUrl(item, true), item.bgColor || 'white');
@@ -3170,6 +3227,20 @@
         const count = duplicateSelectedIds.size;
         btn.textContent = `删除选中 (${count})`;
         btn.disabled = count === 0;
+    }
+
+    function rebuildDuplicateFlatItems() {
+        let top = 0;
+        duplicateFlatItems = [];
+        duplicateGroupsCache.forEach((group, groupIndex) => {
+            duplicateFlatItems.push({ type: 'header', group, groupIndex, top, height: DUPLICATE_GROUP_HEADER_HEIGHT });
+            top += DUPLICATE_GROUP_HEADER_HEIGHT;
+            group.items.forEach((item, itemIndex) => {
+                duplicateFlatItems.push({ type: 'row', group, groupIndex, item, itemIndex, top, height: DUPLICATE_ROW_HEIGHT });
+                top += DUPLICATE_ROW_HEIGHT;
+            });
+        });
+        return top;
     }
 
     function renderDuplicateCheckModal() {
@@ -3193,74 +3264,124 @@
             return;
         }
 
-        duplicateGroupsCache.forEach((group, groupIndex) => {
-            const section = document.createElement('div');
-            section.className = 'duplicate-group';
-
-            const head = document.createElement('div');
-            head.className = 'duplicate-group-head';
-            const title = document.createElement('div');
-            title.className = 'duplicate-group-title';
-            title.textContent = `第 ${groupIndex + 1} 组 · ${group.items.length} 个相同文件`;
-            const action = document.createElement('button');
-            action.type = 'button';
-            action.className = 'duplicate-group-action';
-            action.textContent = '保留首张';
-            action.onclick = () => {
-                group.items.slice(1).forEach(item => duplicateSelectedIds.add(item.id));
-                duplicateSelectedIds.delete(group.items[0].id);
-                renderDuplicateCheckModal();
-            };
-            head.append(title, action);
-            section.appendChild(head);
-
-            group.items.forEach((item, index) => {
-                const row = document.createElement('div');
-                row.className = `duplicate-row${duplicateSelectedIds.has(item.id) ? ' selected' : ''}`;
-                row.onclick = () => toggleDuplicateSelection(item.id);
-
-                const check = document.createElement('input');
-                check.type = 'checkbox';
-                check.className = 'duplicate-check';
-                check.checked = duplicateSelectedIds.has(item.id);
-                check.onclick = event => {
-                    event.stopPropagation();
-                    toggleDuplicateSelection(item.id);
-                };
-
-                const info = document.createElement('div');
-                const name = document.createElement('div');
-                name.className = 'duplicate-name';
-                name.textContent = item.name || item.originalFileName || '素材';
-                const meta = document.createElement('div');
-                meta.className = 'duplicate-meta';
-                const size = item.fileSize ? ` · ${formatBytes(item.fileSize)}` : '';
-                meta.textContent = `${index === 0 ? '默认保留' : '可删除'} · ${item.category || '未分类'} · ${item.originalFileName || item.zipPath || item.name || '未知文件'}${size}`;
-                info.append(name, meta);
-
-                row.append(check, createDuplicatePreview(item), info);
-                section.appendChild(row);
-            });
-            list.appendChild(section);
-        });
+        rebuildDuplicateFlatItems();
+        list.scrollTop = 0;
+        renderDuplicateWindow();
         updateDuplicateDeleteButton();
+    }
+
+    function createDuplicateHeader(entry) {
+        const head = document.createElement('div');
+        head.className = 'duplicate-group-head';
+        const title = document.createElement('div');
+        title.className = 'duplicate-group-title';
+        title.textContent = `第 ${entry.groupIndex + 1} 组 · ${entry.group.items.length} 个相同文件`;
+        const action = document.createElement('button');
+        action.type = 'button';
+        action.className = 'duplicate-group-action';
+        action.textContent = '保留首张';
+        action.onclick = () => {
+            entry.group.items.slice(1).forEach(item => duplicateSelectedIds.add(item.id));
+            duplicateSelectedIds.delete(entry.group.items[0].id);
+            renderDuplicateWindow();
+            updateDuplicateDeleteButton();
+        };
+        head.append(title, action);
+        return head;
+    }
+
+    function createDuplicateRow(entry) {
+        const item = entry.item;
+        const row = document.createElement('div');
+        row.className = `duplicate-row${duplicateSelectedIds.has(item.id) ? ' selected' : ''}`;
+        row.onclick = () => toggleDuplicateSelection(item.id);
+
+        const check = document.createElement('input');
+        check.type = 'checkbox';
+        check.className = 'duplicate-check';
+        check.checked = duplicateSelectedIds.has(item.id);
+        check.onclick = event => {
+            event.stopPropagation();
+            toggleDuplicateSelection(item.id);
+        };
+
+        const info = document.createElement('div');
+        const name = document.createElement('div');
+        name.className = 'duplicate-name';
+        name.textContent = item.name || item.originalFileName || '素材';
+        const meta = document.createElement('div');
+        meta.className = 'duplicate-meta';
+        const size = item.fileSize ? ` · ${formatBytes(item.fileSize)}` : '';
+        meta.textContent = `${entry.itemIndex === 0 ? '默认保留' : '可删除'} · ${item.category || '未分类'} · ${item.originalFileName || item.zipPath || item.name || '未知文件'}${size}`;
+        info.append(name, meta);
+
+        row.append(check, createDuplicatePreview(item), info);
+        return row;
+    }
+
+    function renderDuplicateWindow() {
+        const list = document.getElementById('duplicateCheckList');
+        if (!list || !duplicateFlatItems.length) return;
+        const totalHeight = duplicateFlatItems.length
+            ? duplicateFlatItems[duplicateFlatItems.length - 1].top + duplicateFlatItems[duplicateFlatItems.length - 1].height
+            : 0;
+        const viewportTop = list.scrollTop;
+        const viewportBottom = viewportTop + (list.clientHeight || 540);
+        let start = duplicateFlatItems.findIndex(entry => entry.top + entry.height >= viewportTop);
+        if (start < 0) start = 0;
+        start = Math.max(0, start - DUPLICATE_RENDER_BUFFER);
+        let end = start;
+        while (end < duplicateFlatItems.length && duplicateFlatItems[end].top <= viewportBottom) end++;
+        end = Math.min(duplicateFlatItems.length, end + DUPLICATE_RENDER_BUFFER);
+
+        const spacer = document.createElement('div');
+        spacer.className = 'duplicate-spacer';
+        spacer.style.height = `${totalHeight}px`;
+        const windowEl = document.createElement('div');
+        windowEl.className = 'duplicate-window';
+        windowEl.style.transform = `translateY(${duplicateFlatItems[start].top}px)`;
+
+        for (let i = start; i < end; i++) {
+            const entry = duplicateFlatItems[i];
+            windowEl.appendChild(entry.type === 'header' ? createDuplicateHeader(entry) : createDuplicateRow(entry));
+        }
+        spacer.appendChild(windowEl);
+        list.replaceChildren(spacer);
+        const visibleIds = new Set(duplicateFlatItems.slice(start, end).filter(entry => entry.type === 'row').map(entry => entry.item.id));
+        duplicatePreviewUrls.forEach((url, id) => {
+            if (!visibleIds.has(id)) {
+                URL.revokeObjectURL(url);
+                duplicatePreviewUrls.delete(id);
+            }
+        });
+    }
+
+    function scheduleRenderDuplicateWindow() {
+        if (duplicateRenderFrame) cancelAnimationFrame(duplicateRenderFrame);
+        duplicateRenderFrame = requestAnimationFrame(() => {
+            duplicateRenderFrame = 0;
+            renderDuplicateWindow();
+        });
     }
 
     function toggleDuplicateSelection(id) {
         if (duplicateSelectedIds.has(id)) duplicateSelectedIds.delete(id);
         else duplicateSelectedIds.add(id);
-        renderDuplicateCheckModal();
+        renderDuplicateWindow();
+        updateDuplicateDeleteButton();
     }
 
     function selectAllDuplicateExtras() {
         duplicateSelectedIds.clear();
         duplicateGroupsCache.forEach(group => group.items.slice(1).forEach(item => duplicateSelectedIds.add(item.id)));
-        renderDuplicateCheckModal();
+        renderDuplicateWindow();
+        updateDuplicateDeleteButton();
     }
 
     function clearDuplicateSelection() {
         duplicateSelectedIds.clear();
-        renderDuplicateCheckModal();
+        renderDuplicateWindow();
+        updateDuplicateDeleteButton();
     }
 
     async function checkDuplicateFiles() {
@@ -3296,9 +3417,17 @@
     }
 
     function clearDuplicateCheckCache() {
+        if (duplicateRenderFrame) {
+            cancelAnimationFrame(duplicateRenderFrame);
+            duplicateRenderFrame = 0;
+        }
         duplicateSelectedIds.clear();
         duplicateGroupsCache = [];
-        releaseUnusedObjectUrls(galleryVisibleIds);
+        duplicateFlatItems = [];
+        duplicatePreviewUrls.forEach(url => URL.revokeObjectURL(url));
+        duplicatePreviewUrls.clear();
+        const list = document.getElementById('duplicateCheckList');
+        if (list) list.replaceChildren();
     }
 
     async function importData(event) {

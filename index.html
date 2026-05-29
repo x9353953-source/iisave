@@ -324,6 +324,8 @@
         .backup-btn.check { background: #eef2ff; color: var(--primary-color); border-color: #dfe4ff; box-shadow: none; }
         .backup-btn.export { background: #2f3542; color: #fff; }
         .backup-btn.import { background: #2fb56d; color: #fff; }
+        .privacy-content { display: grid; gap: 10px; color: var(--text-main); font-size: 14px; line-height: 1.65; user-select: text; }
+        .privacy-content p { margin: 0; }
     </style>
 </head>
 <body><div class="top-progress" id="topProgress" aria-hidden="true"><div class="top-progress-bar" id="topProgressBar"></div></div><div class="loading-overlay" id="loadingOverlay">
@@ -430,6 +432,7 @@
                  <button class="backup-btn check wide" onclick="checkDuplicateFiles()">检查已有相同文件</button>
                  <button class="backup-btn export" onclick="openBackupExportModal()">导出备份</button>
                  <button class="backup-btn import" onclick="document.getElementById('importFile').click()">导入合并</button>
+                 <button class="backup-btn neutral wide" onclick="openModal('privacyModal')">使用与隐私说明</button>
              </div>
              <input type="file" id="importFile" accept=".zip,.json,application/zip,application/json" style="display: none" onchange="importData(event)">
         </div>
@@ -521,6 +524,28 @@
         <div class="modal-actions">
             <button class="modal-btn btn-cancel" onclick="closeModal('backupExportModal')">取消</button>
             <button class="modal-btn btn-confirm" id="backupExportConfirmBtn" onclick="confirmBackupExport()">导出</button>
+        </div>
+    </div>
+
+    <div class="modal-dialog modal-md" id="privacyModal">
+        <div class="modal-header-row">
+            <div>
+                <div class="modal-title">使用与隐私说明</div>
+            </div>
+            <button class="btn-icon" onclick="closeModal('privacyModal')" style="font-size: 22px;">×</button>
+        </div>
+        <!-- 隐私说明内容在这里修改 -->
+        <div class="privacy-content">
+            <p>1. 本工具是一个运行在浏览器中的图片整理工具，可用于图片预览、ZIP 导入、整理和导出。</p>
+            <p>2. 图片和数据储存在你自己的浏览器上。所以在清理浏览器缓存和数据或其它情况，图片和数据可能会丢失，自行备份。</p>
+            <p>3. 请勿使用本工具处理、保存或传播违法违规、侵权、色情低俗或其他不当内容。你应对自己导入、整理、导出和分享的内容负责。</p>
+            <p>4. 可以提建议，如有想增加的功能或使用体验等等。</p>
+            <p>5. 可以定制一个自己想要的版本和功能和界面。</p>
+            <p>6. 不要过度借鉴和抄袭。</p>
+            <p>7. 最后还是要提醒养成备份习惯呀，因为数据储存在浏览器，图片数据可能会丢失。不会泄露图片。</p>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn btn-confirm" onclick="closeModal('privacyModal')">知道了</button>
         </div>
     </div>
 

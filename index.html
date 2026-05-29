@@ -110,6 +110,7 @@
         }
         .nav-left { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 18px; }
         .nav-right { display: flex; align-items: center; gap: 8px; }
+        .nav-privacy-btn { padding: 8px 12px; white-space: nowrap; color: var(--primary-color); background: #edeef9; font-weight: 700; }
         
         .toolbar-container { padding: 16px; background: var(--app-bg); }
         .search-box {
@@ -164,6 +165,7 @@
             background: var(--card-bg); border-radius: var(--radius-lg);
             overflow: hidden; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.04);
             transition: transform 0.2s; cursor: pointer; width: 100%;
+            content-visibility: auto; contain-intrinsic-size: 260px 340px;
         }
         .card:active { transform: scale(0.96); }
         .card.selected { border: 2px solid var(--primary-color); box-shadow: 0 0 0 4px rgba(106, 117, 202, 0.2); }
@@ -336,6 +338,7 @@
     <nav class="navbar">
         <div class="nav-left">
             <button class="btn-icon" onclick="toggleSidebar()">☰</button>
+            <button class="btn-secondary nav-privacy-btn" onclick="openModal('privacyModal')">隐私说明</button>
         </div>
         <div class="nav-right">
             <button class="btn-secondary" onclick="openLayoutModal()">排版</button>
@@ -432,7 +435,6 @@
                  <button class="backup-btn check wide" onclick="checkDuplicateFiles()">检查已有相同文件</button>
                  <button class="backup-btn export" onclick="openBackupExportModal()">导出备份</button>
                  <button class="backup-btn import" onclick="document.getElementById('importFile').click()">导入合并</button>
-                 <button class="backup-btn neutral wide" onclick="openModal('privacyModal')">使用与隐私说明</button>
              </div>
              <input type="file" id="importFile" accept=".zip,.json,application/zip,application/json" style="display: none" onchange="importData(event)">
         </div>
@@ -520,6 +522,13 @@
             <label class="form-label">备份页数</label>
             <input type="number" id="backupPageInput" class="form-input" min="1" value="1" oninput="updateBackupExportAction()" onchange="updateBackupExportAction(true)">
         </div>
+        <div class="form-group">
+            <label class="form-label">导出模式</label>
+            <select class="form-input" id="backupExportMode" onchange="updateBackupExportAction()">
+                <option value="importable">可导入备份（保留标签和封面）</option>
+                <option value="images">图片文件包（其它 App 可解压查看）</option>
+            </select>
+        </div>
         <div class="layout-summary" id="backupExportHint">将从当前视图第 1 页开始导出。</div>
         <div class="modal-actions">
             <button class="modal-btn btn-cancel" onclick="closeModal('backupExportModal')">取消</button>
@@ -536,11 +545,14 @@
         </div>
         <!-- 隐私说明内容在这里修改 -->
         <div class="privacy-content">
-            <p>1. 本工具是一个运行在浏览器中的图片整理工具，可用于图片预览、ZIP 导入、整理和导出。</p>
-            <p>2. 图片和数据储存在你自己的浏览器上。所以在清理浏览器缓存和数据或其它情况，图片和数据可能会丢失，自行备份。</p>
+            <p>这个工具一开始只是个人使用，为了更方便找适配水印用的，看到很多人想试试就分享啦。</p>
+            <p>还没有做成小程序 app 的打算，所以一切个人数据都是储存在自己的本地浏览器上。</p>
+            <p>所以现在不建议拿来当网盘，和打算一直储存水印在上面的想法。建议养成备份习惯，保存到网盘上。（在不清理浏览器缓存情况下，目前我用了几个月还没有数据丢失）</p>
+            <p>可保存数量取决于你的设备空间和浏览器限制。浏览器本地存储不等同于永久网盘，清理缓存、切换设备、重装浏览器或存储空间不足时可能导致数据丢失。重要文件请及时导出 ZIP 备份。</p>
+            <p>1. 图片和数据储存在你自己的浏览器上。所以在清理浏览器缓存和数据或其它情况，图片和数据可能会丢失，自行备份。</p>
             <p>3. 请勿使用本工具处理、保存或传播违法违规、侵权、色情低俗或其他不当内容。你应对自己导入、整理、导出和分享的内容负责。</p>
             <p>4. 可以提建议，如有想增加的功能或使用体验等等。</p>
-            <p>5. 可以定制一个自己想要的版本和功能和界面。</p>
+            <p>5. 因为每个人想要的功能不一样，所以可以找我定制一个自己想要的版本和功能和界面。</p>
             <p>6. 不要过度借鉴和抄袭。</p>
             <p>7. 最后还是要提醒养成备份习惯呀，因为数据储存在浏览器，图片数据可能会丢失。不会泄露图片。</p>
         </div>
@@ -653,7 +665,7 @@
             <button class="btn-secondary" onclick="selectVisiblePendingZip()">全选当前可见</button>
             <button class="btn-secondary" onclick="clearPendingZipSelection()">取消选择</button>
         </div>
-        <div class="zip-pending-list" id="zipPendingList" onscroll="renderPendingZipList()"></div>
+        <div class="zip-pending-list" id="zipPendingList" onscroll="scheduleRenderPendingZipList()"></div>
         <div class="form-group" style="margin-top: 16px;">
             <label class="form-label">分类标签</label>
             <input type="text" id="zipPendingCategoryInput" class="form-input" placeholder="输入或选择标签">
@@ -711,6 +723,7 @@
     const CRC_YIELD_BYTES = 512 * 1024;
     const fileNameCollator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
     let imagesData = [];
+    let imagesById = new Map();
     let deletedData = [];
     let unclassifiedZipData = [];
     
@@ -720,6 +733,7 @@
     let objectUrlCache = new Map();
     let viewerObjectUrl = '';
     let pendingZipRecords = [];
+    let pendingZipById = new Map();
     let pendingZipSelectedIds = new Set();
     let pendingZipThumbUrls = new Map();
     let pendingZipDefaultCategory = '默认分类';
@@ -739,6 +753,7 @@
     let galleryVisibleIds = new Set();
     let galleryImageObserver = null;
     let uploadPreviewFrame = 0;
+    let pendingZipRenderFrame = 0;
     let isBatchDownloading = false;
     
     // 记录上一次选定的统一底色
@@ -844,6 +859,7 @@
         imagesData = allRecords.filter(item => !item.deletedAt);
         unclassifiedZipData = allRecords.filter(item => item.pendingUnclassified && !item.deletedAt);
         imagesData = imagesData.filter(item => !item.pendingUnclassified);
+        rebuildImagesIndex();
         deletedData = allRecords
             .filter(item => item.deletedAt && now - item.deletedAt < DELETED_RETENTION_MS)
             .sort((a, b) => b.deletedAt - a.deletedAt);
@@ -855,6 +871,14 @@
         updateStorageStat();
         updateRecentDeletedButton();
         updateUnclassifiedZipButton();
+    }
+
+    function rebuildImagesIndex() {
+        imagesById = new Map(imagesData.map(item => [item.id, item]));
+    }
+
+    function getImageById(id) {
+        return imagesById.get(id) || null;
     }
 
     function dbAction(mode, actionFunc) {
@@ -1322,9 +1346,10 @@
         }
         emptyState.style.display = 'none';
 
-        galleryVisibleIds = new Set();
+        galleryVisibleIds = new Set(stats.map(stat => (stat.coverItem || stat.firstItem)?.id).filter(Boolean));
         resetGalleryImageObserver();
         releaseUnusedObjectUrls(galleryVisibleIds);
+        galleryVisibleIds = new Set();
         container.replaceChildren();
         for (let i = 0; i < stats.length; i += GALLERY_RENDER_BATCH_SIZE) {
             if (renderToken !== galleryRenderToken) return;
@@ -1430,9 +1455,10 @@
             displayData = filtered.slice(start, start + appState.itemsPerPage);
         }
         updatePaginationUI(totalPages);
-        galleryVisibleIds = new Set();
+        galleryVisibleIds = new Set(displayData.filter(item => (item.type || 'image') !== 'zip').map(item => item.id));
         resetGalleryImageObserver();
         releaseUnusedObjectUrls(galleryVisibleIds);
+        galleryVisibleIds = new Set();
 
         container.replaceChildren();
         for (let i = 0; i < displayData.length; i += GALLERY_RENDER_BATCH_SIZE) {
@@ -1546,7 +1572,7 @@
         if (!card || isLongPress) return; 
         
         const id = card.dataset.id;
-        const item = imagesData.find(img => img.id === id);
+        const item = getImageById(id);
 
         if (id && item) {
             if (appState.isBatchMode) {
@@ -1574,7 +1600,7 @@
     function debounceRender() { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { appState.currentPage = 1; renderGallery(); }, 300); }
     function openRenameModal(id) {
         navigator.vibrate && navigator.vibrate(50); 
-        const item = imagesData.find(img => img.id === id);
+        const item = getImageById(id);
         if (!item) return;
         document.getElementById('renameTargetId').value = id;
         document.getElementById('renameInput').value = item.name;
@@ -1588,11 +1614,11 @@
         const newCategory = document.getElementById('renameCategoryInput').value.trim() || '默认分类';
         if (!newName) return alert("名称不能为空");
 
-        const imgIndex = imagesData.findIndex(img => img.id === id);
-        if (imgIndex > -1) {
-            imagesData[imgIndex].name = newName;
-            imagesData[imgIndex].category = newCategory;
-            await dbAction('readwrite', store => store.put(imagesData[imgIndex]));
+        const item = getImageById(id);
+        if (item) {
+            item.name = newName;
+            item.category = newCategory;
+            await dbAction('readwrite', store => store.put(item));
             updateCategoryUI();
             renderGallery();
             closeModal('renameModal');
@@ -2390,9 +2416,22 @@
         });
     }
 
+    function rebuildPendingZipIndex() {
+        pendingZipById = new Map(pendingZipRecords.map(item => [item.id, item]));
+    }
+
+    function getPendingZipById(id) {
+        return pendingZipById.get(id) || null;
+    }
+
     function clearPendingZipImport() {
+        if (pendingZipRenderFrame) {
+            cancelAnimationFrame(pendingZipRenderFrame);
+            pendingZipRenderFrame = 0;
+        }
         cleanupPendingZipThumbs();
         pendingZipRecords = [];
+        rebuildPendingZipIndex();
         pendingZipSelectedIds.clear();
         pendingZipVisibleRange = { start: 0, end: 0 };
         const list = document.getElementById('zipPendingList');
@@ -2459,6 +2498,7 @@
 
     function openZipImportChoiceModal(records, defaultCategory, defaultBgColor = 'white') {
         pendingZipRecords = records.map(item => ({ ...item, bgColor: normalizeBgChoice(item.bgColor || defaultBgColor || 'white') }));
+        rebuildPendingZipIndex();
         pendingZipSelectedIds.clear();
         pendingZipDefaultCategory = defaultCategory || '默认分类';
         pendingZipDefaultBgColor = normalizeBgChoice(defaultBgColor);
@@ -2527,6 +2567,7 @@
     function openStoredUnclassifiedZipModal() {
         if (!unclassifiedZipData.length) return alert('没有未分类暂存图片');
         pendingZipRecords = unclassifiedZipData.map(item => ({ ...item, bgColor: normalizeBgChoice(item.bgColor || 'white') }));
+        rebuildPendingZipIndex();
         pendingZipSelectedIds.clear();
         pendingZipDefaultCategory = '默认分类';
         pendingZipDefaultBgColor = normalizeBgChoice(pendingZipRecords[0]?.bgColor || 'white');
@@ -2536,6 +2577,14 @@
         updatePendingZipSummary();
         openModal('zipPendingModal', { keepPending: true });
         requestAnimationFrame(renderPendingZipList);
+    }
+
+    function scheduleRenderPendingZipList() {
+        if (pendingZipRenderFrame) return;
+        pendingZipRenderFrame = requestAnimationFrame(() => {
+            pendingZipRenderFrame = 0;
+            renderPendingZipList();
+        });
     }
 
     function renderPendingZipList() {
@@ -2595,7 +2644,7 @@
 
     function previewPendingZipImage(id, event) {
         if (event) event.stopPropagation();
-        const item = pendingZipRecords.find(record => record.id === id);
+        const item = getPendingZipById(id);
         if (!item) return;
         let url = pendingZipThumbUrls.get(id);
         if (!url) {
@@ -2608,7 +2657,7 @@
 
     function setPendingZipItemBg(id, value, event) {
         if (event) event.stopPropagation();
-        const item = pendingZipRecords.find(record => record.id === id);
+        const item = getPendingZipById(id);
         if (!item) return;
         item.bgColor = normalizeBgChoice(value);
         renderPendingZipList();
@@ -2658,6 +2707,7 @@
                 pendingZipThumbUrls.delete(item.id);
             });
             pendingZipRecords = pendingZipRecords.filter(item => !selectedIds.has(item.id));
+            rebuildPendingZipIndex();
             pendingZipSelectedIds.clear();
             await loadData();
             if (!pendingZipRecords.length) {
@@ -2805,7 +2855,7 @@
         const downloadBtn = document.getElementById('batchDownloadBtn');
         const oldBtnText = downloadBtn ? downloadBtn.textContent : '';
         const idArray = Array.from(appState.selectedIds);
-        const downloadItems = idArray.map(id => imagesData.find(i => i.id === id)).filter(Boolean);
+        const downloadItems = idArray.map(getImageById).filter(Boolean);
         document.getElementById('loadingOverlay').classList.add('active');
         try {
             for (let i = 0; i < downloadItems.length; i++) {
@@ -2843,7 +2893,7 @@
                     const id = img.dataset.itemId;
                     if (!id) return;
                     if (entry.isIntersecting) {
-                        const item = imagesData.find(record => record.id === id);
+                        const item = getImageById(id);
                         if (item) {
                             galleryVisibleIds.add(id);
                             loadLazyGalleryImage(img, item);
@@ -3040,7 +3090,7 @@
             if ((i + 1) % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
         }
         const manifestBytes = files.get('manifest.json');
-        if (!manifestBytes) throw new Error('manifest.json not found');
+        if (!manifestBytes) throw new Error('这个 ZIP 不是可导入备份，可能是图片文件包。请用“新增素材 > 选择 ZIP”导入图片，或导出时选择“可导入备份”。');
         return { manifest: JSON.parse(decoder.decode(manifestBytes)), files };
     }
 
@@ -3049,15 +3099,16 @@
         const totalItems = items.length;
         const totalPages = Math.ceil(totalItems / appState.itemsPerPage) || 0;
         const input = document.getElementById('backupPageInput');
+        const mode = document.getElementById('backupExportMode')?.value || 'importable';
         let pageCount = parseInt(input?.value, 10);
         if (!Number.isFinite(pageCount) || pageCount < 1) pageCount = totalPages;
         if (totalPages > 0) pageCount = Math.min(pageCount, totalPages);
         const itemCount = Math.min(pageCount * appState.itemsPerPage, totalItems);
-        return { items, totalItems, totalPages, pageCount, itemCount };
+        return { items, totalItems, totalPages, pageCount, itemCount, mode };
     }
 
     function updateBackupExportAction(writeValue = false) {
-        const { totalItems, totalPages, pageCount, itemCount } = getBackupExportState();
+        const { totalItems, totalPages, pageCount, itemCount, mode } = getBackupExportState();
         const input = document.getElementById('backupPageInput');
         const summary = document.getElementById('backupExportSummary');
         const hint = document.getElementById('backupExportHint');
@@ -3067,9 +3118,14 @@
             if (writeValue && totalPages > 0) input.value = pageCount;
         }
         if (summary) summary.textContent = `当前视图共 ${totalItems} 项，每页 ${appState.itemsPerPage} 项，共 ${totalPages} 页`;
-        if (hint) hint.textContent = totalItems
-            ? `将从当前视图第 1 页开始导出前 ${pageCount} 页，共 ${itemCount} 项。`
-            : '当前视图没有可导出的素材。';
+        if (hint) {
+            const modeText = mode === 'images'
+                ? '将导出为按标签分文件夹的图片文件包，适合在其它 App 解压查看，不能直接作为备份导入。'
+                : '将导出为可导入备份，保留标签、封面和素材数据，可用“导入合并”恢复。';
+            hint.textContent = totalItems
+                ? `将从当前视图第 1 页开始导出前 ${pageCount} 页，共 ${itemCount} 项。${modeText}`
+                : '当前视图没有可导出的素材。';
+        }
         if (confirmBtn) {
             confirmBtn.disabled = totalItems === 0;
             confirmBtn.textContent = totalItems ? `导出 ${pageCount} 页 / ${itemCount} 项` : '导出';
@@ -3093,36 +3149,102 @@
         if (state.totalItems === 0) return alert('无可导出数据');
         document.getElementById('backupPageInput').value = state.pageCount;
         closeModal('backupExportModal');
-        await exportData(state.items.slice(0, state.itemCount));
+        await exportData(state.items.slice(0, state.itemCount), state.mode);
     }
 
-    async function exportData(itemsToExport = imagesData) {
+    function sanitizeExportPathPart(value, fallback = '未分类') {
+        const clean = String(value || '')
+            .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .replace(/^\.+|\.+$/g, '');
+        return clean || fallback;
+    }
+
+    function getExportFileName(item, index) {
+        const rawName = item.originalFileName || item.zipPath?.split('/').pop() || item.name || `素材-${index + 1}`;
+        const ext = getExt(rawName) || getExt(item.name) || ((item.type || 'image') === 'zip' ? 'zip' : 'bin');
+        const base = stripExt(rawName) || stripExt(item.name) || `素材-${index + 1}`;
+        return `${sanitizeExportPathPart(base, `素材-${index + 1}`)}.${sanitizeExportPathPart(ext, 'bin')}`;
+    }
+
+    function sanitizeExportRelativePath(path, fallback) {
+        const parts = String(path || '').replace(/\\/g, '/').split('/').filter(Boolean);
+        if (!parts.length) return sanitizeExportPathPart(fallback || '素材');
+        return parts.map((part, index) => sanitizeExportPathPart(part, index === parts.length - 1 ? (fallback || '素材') : '文件夹')).join('/');
+    }
+
+    function makeUniqueExportPath(path, usedPaths) {
+        if (!usedPaths.has(path)) {
+            usedPaths.add(path);
+            return path;
+        }
+        const slashIndex = path.lastIndexOf('/');
+        const folder = slashIndex >= 0 ? path.slice(0, slashIndex + 1) : '';
+        const file = slashIndex >= 0 ? path.slice(slashIndex + 1) : path;
+        const dotIndex = file.lastIndexOf('.');
+        const base = dotIndex > 0 ? file.slice(0, dotIndex) : file;
+        const ext = dotIndex > 0 ? file.slice(dotIndex) : '';
+        let count = 2;
+        let candidate = '';
+        do {
+            candidate = `${folder}${base}-${count}${ext}`;
+            count++;
+        } while (usedPaths.has(candidate));
+        usedPaths.add(candidate);
+        return candidate;
+    }
+
+    async function exportData(itemsToExport = imagesData, exportMode = 'importable') {
         if (!itemsToExport.length) return alert('无可导出数据');
         showTopProgress(0);
         await yieldToBrowser();
         try {
             const manifestItems = [];
             const entries = [];
+            const usedPaths = new Set();
             for (let i = 0; i < itemsToExport.length; i++) {
                 const item = itemsToExport[i];
                 const ext = getExt(item.originalFileName || item.name) || ((item.type || 'image') === 'zip' ? 'zip' : 'bin');
-                const filePath = 'files/' + item.id + '.' + ext;
-                let blob = item.data;
-                if (!(blob instanceof Blob)) {
-                    if (typeof blob === 'string' && blob.startsWith('data:')) blob = await (await fetch(blob)).blob();
-                    else blob = new Blob([String(blob || '')], { type: mimeFromName(item.originalFileName || item.name) });
+                let filePath = 'files/' + item.id + '.' + ext;
+                if (exportMode === 'images') {
+                    const folder = sanitizeExportPathPart(item.category || '未分类');
+                    if ((item.type || 'image') === 'zip') {
+                        const zipBlob = await dataToBlob(item.data, item.originalFileName || item.name || filePath);
+                        const zipImages = await parseZipImages(zipBlob);
+                        if (zipImages.length) {
+                            const zipFolder = sanitizeExportPathPart(stripExt(item.originalFileName || item.name) || item.name || `ZIP-${i + 1}`, `ZIP-${i + 1}`);
+                            for (let j = 0; j < zipImages.length; j++) {
+                                const zipItem = zipImages[j];
+                                const fallbackName = `${zipItem.name || `图片-${j + 1}`}.${getExt(zipItem.path) || 'bin'}`;
+                                const imagePath = sanitizeExportRelativePath(zipItem.path, fallbackName);
+                                entries.push({ name: makeUniqueExportPath(`${folder}/${zipFolder}/${imagePath}`, usedPaths), data: zipItem.blob });
+                            }
+                            if ((i + 1) % WORK_YIELD_INTERVAL === 0 || i === itemsToExport.length - 1) {
+                                setTopProgress(i + 1, itemsToExport.length, 0, 0.45);
+                                await yieldToBrowser();
+                            }
+                            continue;
+                        }
+                    }
+                    filePath = makeUniqueExportPath(`${folder}/${getExportFileName(item, i)}`, usedPaths);
                 }
+                const blob = await dataToBlob(item.data, item.originalFileName || item.name || filePath);
                 entries.push({ name: filePath, data: blob });
-                const manifestItem = { ...item, data: filePath };
-                delete manifestItem.blobUrl;
-                manifestItems.push(manifestItem);
+                if (exportMode !== 'images') {
+                    const manifestItem = { ...item, data: filePath };
+                    delete manifestItem.blobUrl;
+                    manifestItems.push(manifestItem);
+                }
                 if ((i + 1) % WORK_YIELD_INTERVAL === 0 || i === itemsToExport.length - 1) {
                     setTopProgress(i + 1, itemsToExport.length, 0, 0.45);
                     await yieldToBrowser();
                 }
             }
-            const manifest = { version: 2, exportedAt: new Date().toISOString(), items: manifestItems, tagGroups, categoryCovers };
-            entries.unshift({ name: 'manifest.json', data: new Blob([JSON.stringify(manifest)], { type: 'application/json' }) });
+            if (exportMode !== 'images') {
+                const manifest = { version: 2, exportedAt: new Date().toISOString(), items: manifestItems, tagGroups, categoryCovers };
+                entries.unshift({ name: 'manifest.json', data: new Blob([JSON.stringify(manifest)], { type: 'application/json' }) });
+            }
             const blob = await createBackupZip(entries, progress => {
                 const chunkRatio = progress.chunkTotal ? progress.chunkDone / progress.chunkTotal : 1;
                 const entryRatio = (progress.entryIndex + chunkRatio) / Math.max(1, progress.entryCount);
@@ -3131,7 +3253,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'GalleryBackup_' + Date.now() + '.zip';
+            a.download = (exportMode === 'images' ? 'GalleryImages_' : 'GalleryBackup_') + Date.now() + '.zip';
             a.click();
             URL.revokeObjectURL(url);
         } catch (err) {
@@ -3362,6 +3484,23 @@
         return top;
     }
 
+    function findDuplicateWindowStart(viewportTop) {
+        let low = 0;
+        let high = duplicateFlatItems.length - 1;
+        let result = duplicateFlatItems.length;
+        while (low <= high) {
+            const mid = (low + high) >> 1;
+            const entry = duplicateFlatItems[mid];
+            if (entry.top + entry.height >= viewportTop) {
+                result = mid;
+                high = mid - 1;
+            } else {
+                low = mid + 1;
+            }
+        }
+        return Math.max(0, result);
+    }
+
     function renderDuplicateCheckModal() {
         const list = document.getElementById('duplicateCheckList');
         const summary = document.getElementById('duplicateCheckSummary');
@@ -3446,9 +3585,8 @@
             : 0;
         const viewportTop = list.scrollTop;
         const viewportBottom = viewportTop + (list.clientHeight || 540);
-        let start = duplicateFlatItems.findIndex(entry => entry.top + entry.height >= viewportTop);
-        if (start < 0) start = 0;
-        start = Math.max(0, start - DUPLICATE_RENDER_BUFFER);
+        const firstVisible = findDuplicateWindowStart(viewportTop);
+        const start = Math.max(0, firstVisible - DUPLICATE_RENDER_BUFFER);
         let end = start;
         while (end < duplicateFlatItems.length && duplicateFlatItems[end].top <= viewportBottom) end++;
         end = Math.min(duplicateFlatItems.length, end + DUPLICATE_RENDER_BUFFER);

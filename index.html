@@ -159,7 +159,11 @@
         .card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
         .tag { background: #f0f2f5; color: var(--text-sub); font-size: 11px; padding: 3px 8px; border-radius: 10px; }.preview-list { max-height: 180px; overflow-y: auto; margin-top: 12px; background: #f9f9f9; border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: none; }
         .preview-list.show { display: block; }
+        .preview-list.virtualized { position: relative; }
+        .preview-spacer { position: relative; width: 100%; }
+        .preview-window { position: absolute; top: 0; left: 0; right: 0; }
         .preview-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 13px; }
+        .preview-item.upload-preview-row { height: 50px; box-sizing: border-box; gap: 10px; }
         .preview-item:last-child { border-bottom: none; }
         .preview-name { width: 55%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main); }
         .bg-select { padding: 6px; border-radius: 6px; border: 1px solid #ddd; font-size: 12px; background: #fff; color: var(--text-main); }.overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; opacity: 0; visibility: hidden; transition: all 0.3s; backdrop-filter: blur(5px); }
@@ -601,6 +605,9 @@
     const GALLERY_RENDER_BATCH_SIZE = 24;
     const DB_WRITE_BATCH_SIZE = 120;
     const WORK_YIELD_INTERVAL = 30;
+    const OBJECT_URL_CACHE_LIMIT = 180;
+    const UPLOAD_PREVIEW_ROW_HEIGHT = 50;
+    const UPLOAD_PREVIEW_BUFFER = 6;
     const DOWNLOAD_DELAY_MS = 1000;
     const DELETED_RETENTION_MS = 24 * 60 * 60 * 1000;
     const ZIP_PENDING_ROW_HEIGHT = 198;
@@ -630,6 +637,8 @@
     let categoryCoverMatchesCache = [];
     let categoryCoverRenderFrame = 0;
     let galleryVisibleIds = new Set();
+    let galleryImageObserver = null;
+    let uploadPreviewFrame = 0;
     let isBatchDownloading = false;
     
     // 记录上一次选定的统一底色
@@ -1167,6 +1176,7 @@
 
         if (!stats.length) {
             emptyState.style.display = 'block';
+            resetGalleryImageObserver();
             container.replaceChildren();
             galleryVisibleIds = new Set();
             releaseUnusedObjectUrls(galleryVisibleIds);
@@ -1174,14 +1184,9 @@
         }
         emptyState.style.display = 'none';
 
-        const visibleCoverIds = new Set();
-        stats.forEach(stat => {
-            const cover = stat.coverItem || stat.firstItem;
-            if (cover) visibleCoverIds.add(cover.id);
-        });
-        galleryVisibleIds = visibleCoverIds;
+        galleryVisibleIds = new Set();
+        resetGalleryImageObserver();
         releaseUnusedObjectUrls(galleryVisibleIds);
-
         container.replaceChildren();
         for (let i = 0; i < stats.length; i += GALLERY_RENDER_BATCH_SIZE) {
             if (renderToken !== galleryRenderToken) return;
@@ -1206,9 +1211,7 @@
         if (cover) {
             applyCardBg(mediaBox, cover.bgColor || 'white');
             const img = document.createElement('img');
-            img.src = getItemUrl(cover);
-            img.loading = 'lazy';
-            img.decoding = 'async';
+            prepareGalleryImage(img, cover);
             mediaBox.appendChild(img);
         } else {
             const placeholder = document.createElement('div');
@@ -1269,6 +1272,7 @@
         const emptyState = document.getElementById('emptyState');
         if (filtered.length === 0) {
             emptyState.style.display = 'block';
+            resetGalleryImageObserver();
             container.replaceChildren();
             galleryVisibleIds = new Set();
             releaseUnusedObjectUrls(galleryVisibleIds);
@@ -1288,7 +1292,8 @@
             displayData = filtered.slice(start, start + appState.itemsPerPage);
         }
         updatePaginationUI(totalPages);
-        galleryVisibleIds = new Set(displayData.map(img => img.id));
+        galleryVisibleIds = new Set();
+        resetGalleryImageObserver();
         releaseUnusedObjectUrls(galleryVisibleIds);
 
         container.replaceChildren();
@@ -1343,9 +1348,7 @@
         } else {
             applyCardBg(mediaBox, bgColor);
             const img = document.createElement('img');
-            img.src = getItemUrl(item);
-            img.loading = 'lazy';
-            img.decoding = 'async';
+            prepareGalleryImage(img, item);
             mediaBox.appendChild(img);
         }
 
@@ -1834,6 +1837,99 @@
         }
     }
 
+    function createUploadThumb(file) {
+        const thumbBoxStyle = 'width: 40px; height: 40px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--border-color); font-size: 12px; font-weight: 700;';
+        if (isZipFile(file)) {
+            const thumb = document.createElement('div');
+            thumb.style.cssText = thumbBoxStyle;
+            thumb.textContent = 'ZIP';
+            return thumb;
+        }
+        if (isImageFile(file)) {
+            const tempUrl = URL.createObjectURL(file);
+            tempPreviewUrls.push(tempUrl);
+            const img = document.createElement('img');
+            img.src = tempUrl;
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            img.style.cssText = 'width: 40px; height: 40px; object-fit: contain; background: #fff; border-radius: var(--radius-sm); border: 1px solid var(--border-color);';
+            return img;
+        }
+        const thumb = document.createElement('div');
+        thumb.style.cssText = thumbBoxStyle;
+        thumb.textContent = 'IMG';
+        return thumb;
+    }
+
+    function renderUploadPreviewList(resetScroll = false) {
+        const previewList = document.getElementById('filePreviewList');
+        if (!previewList) return;
+        if (uploadPreviewFrame) cancelAnimationFrame(uploadPreviewFrame);
+        uploadPreviewFrame = requestAnimationFrame(() => {
+            const files = selectedUploadFiles;
+            clearTempPreviews();
+            if (!files.length) {
+                previewList.classList.remove('show', 'virtualized');
+                previewList.replaceChildren();
+                return;
+            }
+            if (resetScroll) previewList.scrollTop = 0;
+
+            const viewportHeight = previewList.clientHeight || 180;
+            const start = Math.max(0, Math.floor(previewList.scrollTop / UPLOAD_PREVIEW_ROW_HEIGHT) - UPLOAD_PREVIEW_BUFFER);
+            const end = Math.min(files.length, Math.ceil((previewList.scrollTop + viewportHeight) / UPLOAD_PREVIEW_ROW_HEIGHT) + UPLOAD_PREVIEW_BUFFER);
+            const spacer = document.createElement('div');
+            spacer.className = 'preview-spacer';
+            spacer.style.height = `${files.length * UPLOAD_PREVIEW_ROW_HEIGHT}px`;
+            const windowEl = document.createElement('div');
+            windowEl.className = 'preview-window';
+            windowEl.style.transform = `translateY(${start * UPLOAD_PREVIEW_ROW_HEIGHT}px)`;
+
+            for (let index = start; index < end; index++) {
+                const file = files[index];
+                const row = document.createElement('div');
+                row.className = 'preview-item upload-preview-row';
+                row.appendChild(createUploadThumb(file));
+
+                const name = document.createElement('span');
+                name.className = 'preview-name';
+                name.style.cssText = 'flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+                name.title = file.name;
+                name.textContent = file.name;
+
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'preview-remove';
+                remove.setAttribute('aria-label', `Cancel upload ${file.name}`);
+                remove.textContent = '×';
+                remove.onclick = () => removeUploadFile(index);
+
+                row.append(name, remove);
+                windowEl.appendChild(row);
+            }
+
+            spacer.appendChild(windowEl);
+            previewList.replaceChildren(spacer);
+        });
+    }
+
+    function updateFileTipFast() {
+        const count = selectedUploadFiles.length;
+        document.getElementById('fileCountTip').innerText = count > 0 ? `已选择 ${count} 个文件` : '未选择';
+        const previewList = document.getElementById('filePreviewList');
+        if (count > 0) {
+            previewList.classList.add('show', 'virtualized');
+            previewList.onscroll = () => renderUploadPreviewList();
+            renderUploadPreviewList(true);
+        } else {
+            if (uploadPreviewFrame) cancelAnimationFrame(uploadPreviewFrame);
+            clearTempPreviews();
+            previewList.classList.remove('show', 'virtualized');
+            previewList.onscroll = null;
+            previewList.replaceChildren();
+        }
+    }
+
     function handleUploadFiles(event, expectedType) {
         const incomingFiles = Array.from(event.target.files || []);
         const validFiles = incomingFiles.filter(file => {
@@ -1853,12 +1949,12 @@
             }
         });
         event.target.value = '';
-        updateFileTip();
+        updateFileTipFast();
     }
 
     function removeUploadFile(index) {
         selectedUploadFiles.splice(index, 1);
-        updateFileTip();
+        updateFileTipFast();
     }
 
     function updateFileTip() { 
@@ -2593,6 +2689,74 @@
         }
     }
 
+    function resetGalleryImageObserver() {
+        if (galleryImageObserver) {
+            galleryImageObserver.disconnect();
+            galleryImageObserver = null;
+        }
+    }
+
+    function getGalleryImageObserver() {
+        if (!('IntersectionObserver' in window)) return null;
+        if (!galleryImageObserver) {
+            galleryImageObserver = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    const img = entry.target;
+                    const id = img.dataset.itemId;
+                    if (!id) return;
+                    if (entry.isIntersecting) {
+                        const item = imagesData.find(record => record.id === id);
+                        if (item) {
+                            galleryVisibleIds.add(id);
+                            loadLazyGalleryImage(img, item);
+                        }
+                    } else {
+                        galleryVisibleIds.delete(id);
+                        if (objectUrlCache.size > OBJECT_URL_CACHE_LIMIT && img.dataset.loadedUrl && objectUrlCache.get(id) !== viewerObjectUrl) {
+                            img.removeAttribute('src');
+                            img.dataset.loadedUrl = '';
+                            revokeItemObjectUrl(id);
+                        }
+                    }
+                });
+                pruneObjectUrlCache();
+            }, { rootMargin: '360px 0px', threshold: 0.01 });
+        }
+        return galleryImageObserver;
+    }
+
+    function prepareGalleryImage(img, item) {
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.dataset.itemId = item.id;
+        const observer = getGalleryImageObserver();
+        if (observer) {
+            observer.observe(img);
+        } else {
+            galleryVisibleIds.add(item.id);
+            loadLazyGalleryImage(img, item);
+        }
+    }
+
+    function loadLazyGalleryImage(img, item) {
+        const url = getItemUrl(item);
+        if (img.dataset.loadedUrl !== url) {
+            img.src = url;
+            img.dataset.loadedUrl = url;
+        }
+    }
+
+    function pruneObjectUrlCache(extraKeepIds = new Set()) {
+        if (objectUrlCache.size <= OBJECT_URL_CACHE_LIMIT) return;
+        const keepIds = new Set([...galleryVisibleIds, ...extraKeepIds]);
+        for (const [id, url] of objectUrlCache) {
+            if (objectUrlCache.size <= OBJECT_URL_CACHE_LIMIT) break;
+            if (keepIds.has(id) || url === viewerObjectUrl) continue;
+            URL.revokeObjectURL(url);
+            objectUrlCache.delete(id);
+        }
+    }
+
     function revokeItemObjectUrl(id) {
         const url = objectUrlCache.get(id);
         if (!url) return;
@@ -2614,9 +2778,14 @@
         if (item.data instanceof Blob) {
             if (!objectUrlCache.has(item.id)) {
                 objectUrlCache.set(item.id, URL.createObjectURL(item.data));
+            } else {
+                const url = objectUrlCache.get(item.id);
+                objectUrlCache.delete(item.id);
+                objectUrlCache.set(item.id, url);
             }
             const url = objectUrlCache.get(item.id);
             if (keepForViewer) viewerObjectUrl = url;
+            pruneObjectUrlCache(keepForViewer ? new Set([item.id]) : new Set());
             return url;
         }
         return item.data;
@@ -2970,14 +3139,17 @@
         
         // --- 内存回收与重置：如果关闭的是上传弹窗，清理状态 ---
         if (modalId === 'addModal') {
+            if (uploadPreviewFrame) cancelAnimationFrame(uploadPreviewFrame);
             clearTempPreviews();
             selectedUploadFiles = [];
             document.getElementById('imageUpload').value = '';
             document.getElementById('zipUpload').value = '';
             document.getElementById('imgName').value = '';
             document.getElementById('fileCountTip').innerText = '未选择';
-            document.getElementById('filePreviewList').innerHTML = '';
-            document.getElementById('filePreviewList').classList.remove('show');
+            const previewList = document.getElementById('filePreviewList');
+            previewList.onscroll = null;
+            previewList.replaceChildren();
+            previewList.classList.remove('show', 'virtualized');
         }
         if ((modalId === 'zipImportChoiceModal' || modalId === 'zipPendingModal') && !options.keepPending) {
             clearPendingZipImport();

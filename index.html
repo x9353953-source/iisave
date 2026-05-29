@@ -396,7 +396,7 @@
              <div style="font-size: 13px; color: var(--text-sub); margin-bottom: 10px;">数据管理 (本地存储)</div>
              <div class="storage-stat" id="storageStat">正在计算存储...</div>
              <button class="backup-btn" id="recentDeletedBtn" style="background: #f4f4f6; color: var(--text-main);" onclick="openRecentDeletedModal()">最近删除 (0)</button>
-             <button class="backup-btn" style="background: #edeef9; color: var(--primary-color);" onclick="checkDuplicateFiles()">检查相同文件</button>
+             <button class="backup-btn" style="background: #edeef9; color: var(--primary-color);" onclick="checkDuplicateFiles()">检查已有相同文件</button>
              <button class="backup-btn" style="background: #333; color: white;" onclick="openBackupExportModal()">📤 导出 ZIP 备份</button>
              <button class="backup-btn" style="background: #34c759; color: white;" onclick="document.getElementById('importFile').click()">📥 导入/合并备份</button>
              <input type="file" id="importFile" accept=".zip,.json,application/zip,application/json" style="display: none" onchange="importData(event)">
@@ -544,7 +544,7 @@
     <div class="modal-dialog modal-md modal-wide" id="duplicateCheckModal">
         <div class="modal-header-row">
             <div>
-                <div class="modal-title">相同文件检查</div>
+                <div class="modal-title">已有相同文件检查</div>
                 <div class="zip-pending-stats" id="duplicateCheckSummary">正在检查图库内容</div>
             </div>
             <button class="btn-icon" onclick="closeModal('duplicateCheckModal')" style="font-size: 22px;">×</button>

@@ -77,6 +77,27 @@
             border-top-color: var(--primary-color); border-radius: 50%;
             animation: spin 1s linear infinite; margin-bottom: 12px;
         }
+        .top-progress {
+            position: fixed; top: 0; left: 0; width: 100%; height: 3px;
+            z-index: 10000; opacity: 0; pointer-events: none;
+            transition: opacity 0.18s ease;
+            background: rgba(106, 117, 202, 0.10);
+        }
+        .top-progress.active { opacity: 1; }
+        .top-progress-bar {
+            width: 0%; height: 100%;
+            background: var(--primary-gradient);
+            box-shadow: 0 0 12px rgba(106, 117, 202, 0.35);
+            transition: width 0.16s ease;
+        }
+        .top-progress.indeterminate .top-progress-bar {
+            width: 38%;
+            animation: topProgressSlide 1.05s ease-in-out infinite;
+        }
+        @keyframes topProgressSlide {
+            0% { transform: translateX(-110%); }
+            100% { transform: translateX(290%); }
+        }
         @keyframes spin { to { transform: rotate(360deg); } }
         
         .navbar {
@@ -305,7 +326,7 @@
         .backup-btn.import { background: #2fb56d; color: #fff; }
     </style>
 </head>
-<body><div class="loading-overlay" id="loadingOverlay">
+<body><div class="top-progress" id="topProgress" aria-hidden="true"><div class="top-progress-bar" id="topProgressBar"></div></div><div class="loading-overlay" id="loadingOverlay">
         <div class="spinner"></div>
         <div id="loadingText" style="color: var(--text-sub); font-size: 14px; font-weight: 600;">处理中，请稍候...</div>
     </div>
@@ -662,6 +683,7 @@
     const DUPLICATE_GROUP_HEADER_HEIGHT = 44;
     const DUPLICATE_ROW_HEIGHT = 77;
     const DUPLICATE_RENDER_BUFFER = 10;
+    const CRC_YIELD_BYTES = 512 * 1024;
     const fileNameCollator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
     let imagesData = [];
     let deletedData = [];
@@ -914,6 +936,44 @@
     function setLoadingText(text) {
         const el = document.getElementById('loadingText');
         if (el) el.textContent = text || '处理中，请稍候...';
+    }
+
+    let topProgressHideTimer = 0;
+    function showTopProgress(progress) {
+        const wrap = document.getElementById('topProgress');
+        const bar = document.getElementById('topProgressBar');
+        if (!wrap || !bar) return;
+        clearTimeout(topProgressHideTimer);
+        wrap.classList.add('active');
+        const hasProgress = Number.isFinite(progress);
+        wrap.classList.toggle('indeterminate', !hasProgress);
+        if (hasProgress) {
+            const percent = Math.max(0, Math.min(100, progress * 100));
+            bar.style.width = `${percent}%`;
+        } else {
+            bar.style.width = '';
+        }
+    }
+
+    function setTopProgress(current, total, offset = 0, span = 1) {
+        if (!total || total <= 0) {
+            showTopProgress(NaN);
+            return;
+        }
+        showTopProgress(offset + (Math.max(0, Math.min(total, current)) / total) * span);
+    }
+
+    function hideTopProgress() {
+        const wrap = document.getElementById('topProgress');
+        const bar = document.getElementById('topProgressBar');
+        if (!wrap || !bar) return;
+        wrap.classList.remove('indeterminate');
+        bar.style.width = '100%';
+        clearTimeout(topProgressHideTimer);
+        topProgressHideTimer = setTimeout(() => {
+            wrap.classList.remove('active');
+            bar.style.width = '0%';
+        }, 180);
     }
 
     function updateGroupSelect() {
@@ -2870,18 +2930,35 @@
         return (crc ^ 0xffffffff) >>> 0;
     }
 
+    async function backupCrc32Async(bytes, onChunk) {
+        let crc = 0xffffffff;
+        for (let start = 0; start < bytes.length; start += CRC_YIELD_BYTES) {
+            const end = Math.min(bytes.length, start + CRC_YIELD_BYTES);
+            for (let i = start; i < end; i++) crc = backupCrcTable[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+            if (end < bytes.length) {
+                if (onChunk) onChunk(end, bytes.length);
+                await yieldToBrowser();
+            }
+        }
+        if (onChunk) onChunk(bytes.length, bytes.length);
+        return (crc ^ 0xffffffff) >>> 0;
+    }
+
     function pushU16(arr, value) { arr.push(value & 255, (value >>> 8) & 255); }
     function pushU32(arr, value) { arr.push(value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255); }
 
-    async function createBackupZip(entries) {
+    async function createBackupZip(entries, onProgress) {
         const encoder = new TextEncoder();
         const chunks = [];
         const central = [];
         let offset = 0;
-        for (const entry of entries) {
+        for (let entryIndex = 0; entryIndex < entries.length; entryIndex++) {
+            const entry = entries[entryIndex];
             const nameBytes = encoder.encode(entry.name);
             const dataBytes = entry.data instanceof Uint8Array ? entry.data : new Uint8Array(await entry.data.arrayBuffer());
-            const crc = backupCrc32(dataBytes);
+            const crc = await backupCrc32Async(dataBytes, (chunkDone, chunkTotal) => {
+                if (onProgress) onProgress({ entryIndex, entryCount: entries.length, chunkDone, chunkTotal });
+            });
             const local = [];
             pushU32(local, 0x04034b50); pushU16(local, 20); pushU16(local, 0x0800); pushU16(local, 0);
             pushU16(local, 0); pushU16(local, 0); pushU32(local, crc); pushU32(local, dataBytes.length);
@@ -2895,6 +2972,8 @@
             pushU32(header, 0); pushU32(header, offset);
             central.push(new Uint8Array(header), nameBytes);
             offset += local.length + nameBytes.length + dataBytes.length;
+            if (onProgress) onProgress({ entryIndex: entryIndex + 1, entryCount: entries.length, chunkDone: 1, chunkTotal: 1 });
+            if ((entryIndex + 1) % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
         }
         const centralSize = central.reduce((sum, item) => sum + item.length, 0);
         const end = [];
@@ -2903,7 +2982,7 @@
         return new Blob([...chunks, ...central, new Uint8Array(end)], { type: 'application/zip' });
     }
 
-    async function parseBackupZip(file) {
+    async function parseBackupZip(file, onProgress) {
         const buffer = await file.arrayBuffer();
         const view = new DataView(buffer);
         const bytes = new Uint8Array(buffer);
@@ -2932,6 +3011,8 @@
             const localExtraLen = view.getUint16(localOffset + 28, true);
             const dataStart = localOffset + 30 + localNameLen + localExtraLen;
             files.set(name, bytes.slice(dataStart, dataStart + compressedSize));
+            if (onProgress) onProgress(i + 1, total);
+            if ((i + 1) % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
         }
         const manifestBytes = files.get('manifest.json');
         if (!manifestBytes) throw new Error('manifest.json not found');
@@ -2992,7 +3073,8 @@
 
     async function exportData(itemsToExport = imagesData) {
         if (!itemsToExport.length) return alert('无可导出数据');
-        document.getElementById('loadingOverlay').classList.add('active');
+        showTopProgress(0);
+        await yieldToBrowser();
         try {
             const manifestItems = [];
             const entries = [];
@@ -3009,11 +3091,18 @@
                 const manifestItem = { ...item, data: filePath };
                 delete manifestItem.blobUrl;
                 manifestItems.push(manifestItem);
-                if ((i + 1) % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
+                if ((i + 1) % WORK_YIELD_INTERVAL === 0 || i === itemsToExport.length - 1) {
+                    setTopProgress(i + 1, itemsToExport.length, 0, 0.45);
+                    await yieldToBrowser();
+                }
             }
             const manifest = { version: 2, exportedAt: new Date().toISOString(), items: manifestItems, tagGroups, categoryCovers };
             entries.unshift({ name: 'manifest.json', data: new Blob([JSON.stringify(manifest)], { type: 'application/json' }) });
-            const blob = await createBackupZip(entries);
+            const blob = await createBackupZip(entries, progress => {
+                const chunkRatio = progress.chunkTotal ? progress.chunkDone / progress.chunkTotal : 1;
+                const entryRatio = (progress.entryIndex + chunkRatio) / Math.max(1, progress.entryCount);
+                showTopProgress(0.45 + entryRatio * 0.55);
+            });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -3024,7 +3113,7 @@
             console.error(err);
             alert('导出失败：' + (err.message || '文件可能过大'));
         } finally {
-            document.getElementById('loadingOverlay').classList.remove('active');
+            hideTopProgress();
         }
     }
 
@@ -3115,12 +3204,14 @@
             } catch (err) {
                 console.warn('文件大小读取失败', item && item.id, err);
             }
-            if ((i + 1) % WORK_YIELD_INTERVAL === 0) {
+            if ((i + 1) % WORK_YIELD_INTERVAL === 0 || i === records.length - 1) {
+                setTopProgress(i + 1, records.length, 0, 0.35);
                 setLoadingText(`正在初筛文件 ${i + 1}/${records.length}...`);
                 await yieldToBrowser();
             }
         }
         const candidates = Array.from(bySize.values()).filter(items => items.length > 1).flat();
+        if (!candidates.length) setTopProgress(1, 1, 0.35, 0.65);
         const byHash = new Map();
         for (let i = 0; i < candidates.length; i++) {
             const item = candidates[i];
@@ -3132,7 +3223,8 @@
             } catch (err) {
                 console.warn('文件检查失败', item && item.id, err);
             }
-            if ((i + 1) % WORK_YIELD_INTERVAL === 0) {
+            if ((i + 1) % WORK_YIELD_INTERVAL === 0 || i === candidates.length - 1) {
+                setTopProgress(i + 1, candidates.length, 0.35, 0.65);
                 setLoadingText(`正在检查候选文件 ${i + 1}/${candidates.length}...`);
                 await yieldToBrowser();
             }
@@ -3152,7 +3244,8 @@
             } catch (err) {
                 console.warn('现有文件检查失败', item && item.id, err);
             }
-            if ((i + 1) % WORK_YIELD_INTERVAL === 0) {
+            if ((i + 1) % WORK_YIELD_INTERVAL === 0 || i === imagesData.length - 1) {
+                setTopProgress(i + 1, imagesData.length, 0.45, 0.25);
                 setLoadingText(`正在比对现有文件 ${i + 1}/${imagesData.length}...`);
                 await yieldToBrowser();
             }
@@ -3179,7 +3272,8 @@
                 uniqueRecords.push(record);
                 if (sourceId) importedIdMap.set(sourceId, record.id);
             }
-            if ((i + 1) % WORK_YIELD_INTERVAL === 0) {
+            if ((i + 1) % WORK_YIELD_INTERVAL === 0 || i === records.length - 1) {
+                setTopProgress(i + 1, records.length, 0.70, 0.20);
                 setLoadingText(`正在剔除重复文件 ${i + 1}/${records.length}...`);
                 await yieldToBrowser();
             }
@@ -3387,12 +3481,13 @@
     async function checkDuplicateFiles() {
         if (!imagesData.length) return alert('当前图库还没有素材');
         closeAllOverlays();
-        document.getElementById('loadingOverlay').classList.add('active');
+        showTopProgress(0);
+        await yieldToBrowser();
         try {
             setLoadingText('正在检查相同文件...');
             duplicateSelectedIds.clear();
             duplicateGroupsCache = await findDuplicateGroups(imagesData);
-            document.getElementById('loadingOverlay').classList.remove('active');
+            hideTopProgress();
             openModal('duplicateCheckModal');
             renderDuplicateCheckModal();
         } catch (err) {
@@ -3400,7 +3495,7 @@
             alert('检查失败：' + (err.message || '无法读取文件内容'));
         } finally {
             setLoadingText();
-            document.getElementById('loadingOverlay').classList.remove('active');
+            hideTopProgress();
         }
     }
 
@@ -3434,7 +3529,8 @@
         const file = event.target.files[0];
         if (!file) return;
         if (!confirm('导入会合并到当前图库，不会清空现有数据。继续吗？')) { event.target.value = ''; return; }
-        document.getElementById('loadingOverlay').classList.add('active');
+        showTopProgress(0);
+        await yieldToBrowser();
         try {
             const usedIds = new Set(imagesData.concat(deletedData).map(item => item.id));
             let records = [];
@@ -3444,7 +3540,7 @@
             const sourceIdByRecordId = new Map();
             let duplicateSkipped = 0;
             if (isZipFile(file)) {
-                const backup = await parseBackupZip(file);
+                const backup = await parseBackupZip(file, (done, total) => setTopProgress(done, total, 0, 0.25));
                 const items = backup.manifest.items || backup.manifest.images || [];
                 importedGroups = backup.manifest.tagGroups || [];
                 importedCovers = backup.manifest.categoryCovers || {};
@@ -3459,10 +3555,15 @@
                         records.push(record);
                         if (sourceId) sourceIdByRecordId.set(record.id, String(sourceId));
                     }
-                    if ((i + 1) % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
+                    if ((i + 1) % WORK_YIELD_INTERVAL === 0 || i === items.length - 1) {
+                        setTopProgress(i + 1, items.length, 0.25, 0.20);
+                        await yieldToBrowser();
+                    }
                 }
             } else {
+                showTopProgress(0.08);
                 const text = await file.text();
+                showTopProgress(0.12);
                 const rawData = JSON.parse(text);
                 const data = Array.isArray(rawData) ? rawData : (rawData.images || rawData.items || rawData.list || []);
                 importedGroups = rawData.tagGroups || [];
@@ -3474,7 +3575,10 @@
                         records.push(record);
                         if (sourceId) sourceIdByRecordId.set(record.id, String(sourceId));
                     }
-                    if ((i + 1) % WORK_YIELD_INTERVAL === 0) await yieldToBrowser();
+                    if ((i + 1) % WORK_YIELD_INTERVAL === 0 || i === data.length - 1) {
+                        setTopProgress(i + 1, data.length, 0.12, 0.33);
+                        await yieldToBrowser();
+                    }
                 }
             }
             if (!records.length) throw new Error('未找到可导入的素材数据');
@@ -3482,7 +3586,9 @@
             records = dedupeResult.uniqueRecords;
             duplicateSkipped = dedupeResult.skipped;
             if (records.length) {
+                showTopProgress(0.92);
                 await saveRecords(records);
+                showTopProgress(0.96);
                 imagesData = imagesData.concat(records);
             }
             if (importedCovers && typeof importedCovers === 'object') {
@@ -3496,6 +3602,7 @@
                 });
                 await saveCategoryCovers();
             }
+            showTopProgress(0.98);
             if (Array.isArray(importedGroups) && importedGroups.length) {
                 const existing = new Map(tagGroups.map(group => [group.name, { ...group, tags: [...group.tags] }]));
                 importedGroups.forEach(group => {
@@ -3515,7 +3622,7 @@
             console.error(err);
             alert('导入失败：' + (err.message || '文件格式错误'));
         } finally {
-            document.getElementById('loadingOverlay').classList.remove('active');
+            hideTopProgress();
             event.target.value = '';
         }
     }

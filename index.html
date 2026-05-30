@@ -1333,8 +1333,8 @@
         const searchQ = document.getElementById('searchInput').value.toLowerCase().trim();
         const stats = getCategoryStats().filter(stat => !searchQ || String(stat.category).toLowerCase().includes(searchQ));
         const emptyState = document.getElementById('emptyState');
+        const isPaginated = document.getElementById('paginationToggle').checked;
         container.classList.add('category-preview-grid');
-        updatePaginationUI(0);
 
         if (!stats.length) {
             emptyState.style.display = 'block';
@@ -1342,23 +1342,35 @@
             container.replaceChildren();
             galleryVisibleIds = new Set();
             releaseUnusedObjectUrls(galleryVisibleIds);
+            updatePaginationUI(0);
             return;
         }
         emptyState.style.display = 'none';
 
-        galleryVisibleIds = new Set(stats.map(stat => (stat.coverItem || stat.firstItem)?.id).filter(Boolean));
+        const totalPages = Math.ceil(stats.length / appState.itemsPerPage) || 1;
+        if (appState.currentPage > totalPages) appState.currentPage = totalPages;
+        if (appState.currentPage < 1) appState.currentPage = 1;
+
+        let displayStats = stats;
+        if (isPaginated) {
+            const start = (appState.currentPage - 1) * appState.itemsPerPage;
+            displayStats = stats.slice(start, start + appState.itemsPerPage);
+        }
+        updatePaginationUI(totalPages);
+
+        galleryVisibleIds = new Set(displayStats.map(stat => (stat.coverItem || stat.firstItem)?.id).filter(Boolean));
         resetGalleryImageObserver();
         releaseUnusedObjectUrls(galleryVisibleIds);
         galleryVisibleIds = new Set();
         container.replaceChildren();
-        for (let i = 0; i < stats.length; i += GALLERY_RENDER_BATCH_SIZE) {
+        for (let i = 0; i < displayStats.length; i += GALLERY_RENDER_BATCH_SIZE) {
             if (renderToken !== galleryRenderToken) return;
             const fragment = document.createDocumentFragment();
-            stats.slice(i, i + GALLERY_RENDER_BATCH_SIZE).forEach(stat => {
+            displayStats.slice(i, i + GALLERY_RENDER_BATCH_SIZE).forEach(stat => {
                 fragment.appendChild(createCategoryPreviewCard(stat));
             });
             container.appendChild(fragment);
-            if (i + GALLERY_RENDER_BATCH_SIZE < stats.length) await yieldToBrowser();
+            if (i + GALLERY_RENDER_BATCH_SIZE < displayStats.length) await yieldToBrowser();
         }
     }
 
@@ -1535,7 +1547,7 @@
     function updatePaginationUI(totalPages) {
         const pagBar = document.getElementById('paginationBar');
         const isPaginated = document.getElementById('paginationToggle').checked;
-        pagBar.classList.toggle('show', appState.previewMode !== 'tags' && isPaginated && !appState.isBatchMode && totalPages > 0);
+        pagBar.classList.toggle('show', isPaginated && !appState.isBatchMode && totalPages > 0);
         
         document.getElementById('pageJumpInput').value = appState.currentPage;
         document.getElementById('pageJumpInput').max = totalPages;

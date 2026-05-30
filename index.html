@@ -244,6 +244,10 @@
         .recent-deleted-meta { font-size: 11px; color: var(--text-sub); margin-top: 4px; line-height: 1.4; }
         .recent-deleted-actions { display: flex; gap: 6px; }
         .recent-deleted-empty { padding: 28px 16px; text-align: center; color: var(--text-sub); font-size: 13px; }
+        .unbacked-list { height: min(58vh, 520px); max-height: none; position: relative; }
+        .unbacked-row { height: 73px; box-sizing: border-box; }
+        .unbacked-spacer { position: relative; width: 100%; }
+        .unbacked-window { position: absolute; top: 0; left: 0; right: 0; }
         .duplicate-list { height: min(58vh, 540px); overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; position: relative; }
         .duplicate-spacer { position: relative; width: 100%; }
         .duplicate-window { position: absolute; top: 0; left: 0; right: 0; }
@@ -577,7 +581,7 @@
         <div class="zip-pending-tools">
             <button class="btn-secondary" id="exportUnbackedBtn" onclick="exportUnbackedRecords()">导出未备份</button>
         </div>
-        <div class="recent-deleted-list" id="unbackedList"></div>
+        <div class="recent-deleted-list unbacked-list" id="unbackedList" onscroll="scheduleRenderUnbackedWindow()"></div>
     </div>
 
     <div class="modal-dialog modal-md" id="privacyModal">
@@ -764,6 +768,8 @@
     const DUPLICATE_GROUP_HEADER_HEIGHT = 44;
     const DUPLICATE_ROW_HEIGHT = 77;
     const DUPLICATE_RENDER_BUFFER = 10;
+    const UNBACKED_ROW_HEIGHT = 73;
+    const UNBACKED_RENDER_BUFFER = 10;
     const CRC_YIELD_BYTES = 512 * 1024;
     const fileNameCollator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
     let imagesData = [];
@@ -794,6 +800,8 @@
     let duplicateFlatItems = [];
     let duplicateRenderFrame = 0;
     let duplicatePreviewUrls = new Map();
+    let unbackedItemsCache = [];
+    let unbackedRenderFrame = 0;
     let galleryVisibleIds = new Set();
     let galleryImageObserver = null;
     let uploadPreviewFrame = 0;
@@ -3362,7 +3370,7 @@
 
     function createBackupStatusRow(item) {
         const row = document.createElement('div');
-        row.className = 'recent-deleted-row';
+        row.className = 'recent-deleted-row unbacked-row';
         let thumb;
         if ((item.type || 'image') === 'zip') {
             thumb = document.createElement('div');
@@ -3389,23 +3397,78 @@
         return row;
     }
 
-    function renderUnbackedModal() {
-        const list = document.getElementById('unbackedList');
+    function updateUnbackedSummary() {
         const summary = document.getElementById('unbackedSummary');
         const exportBtn = document.getElementById('exportUnbackedBtn');
+        if (summary) {
+            summary.textContent = unbackedItemsCache.length
+                ? `${unbackedItemsCache.length} 项没有可导入备份记录`
+                : '所有素材都有可导入备份记录';
+        }
+        if (exportBtn) exportBtn.disabled = !unbackedItemsCache.length;
+    }
+
+    function renderUnbackedModal() {
+        const list = document.getElementById('unbackedList');
         if (!list) return;
-        list.replaceChildren();
-        const items = getUnbackedItems();
-        if (summary) summary.textContent = items.length ? `${items.length} 项没有可导入备份记录` : '所有素材都有可导入备份记录';
-        if (exportBtn) exportBtn.disabled = !items.length;
-        if (!items.length) {
+        unbackedItemsCache = getUnbackedItems();
+        list.scrollTop = 0;
+        updateUnbackedSummary();
+        renderUnbackedWindow();
+    }
+
+    function renderUnbackedWindow() {
+        const list = document.getElementById('unbackedList');
+        if (!list) return;
+        if (!unbackedItemsCache.length) {
             const empty = document.createElement('div');
             empty.className = 'recent-deleted-empty';
             empty.textContent = '没有未备份记录';
-            list.appendChild(empty);
+            list.replaceChildren(empty);
+            releaseUnusedObjectUrls(galleryVisibleIds);
             return;
         }
-        items.forEach(item => list.appendChild(createBackupStatusRow(item)));
+        const previousScrollTop = list.scrollTop;
+        const viewportHeight = list.clientHeight || 520;
+        const start = Math.max(0, Math.floor(list.scrollTop / UNBACKED_ROW_HEIGHT) - UNBACKED_RENDER_BUFFER);
+        const end = Math.min(unbackedItemsCache.length, Math.ceil((list.scrollTop + viewportHeight) / UNBACKED_ROW_HEIGHT) + UNBACKED_RENDER_BUFFER);
+        const visibleIds = new Set();
+        const spacer = document.createElement('div');
+        spacer.className = 'unbacked-spacer';
+        spacer.style.height = `${unbackedItemsCache.length * UNBACKED_ROW_HEIGHT}px`;
+        const windowEl = document.createElement('div');
+        windowEl.className = 'unbacked-window';
+        windowEl.style.transform = `translateY(${start * UNBACKED_ROW_HEIGHT}px)`;
+        const fragment = document.createDocumentFragment();
+        for (let i = start; i < end; i++) {
+            const item = unbackedItemsCache[i];
+            if ((item.type || 'image') !== 'zip') visibleIds.add(item.id);
+            fragment.appendChild(createBackupStatusRow(item));
+        }
+        windowEl.appendChild(fragment);
+        spacer.appendChild(windowEl);
+        list.replaceChildren(spacer);
+        if (list.scrollTop !== previousScrollTop) list.scrollTop = previousScrollTop;
+        releaseUnusedObjectUrls(new Set([...galleryVisibleIds, ...visibleIds]));
+    }
+
+    function scheduleRenderUnbackedWindow() {
+        if (unbackedRenderFrame) return;
+        unbackedRenderFrame = requestAnimationFrame(() => {
+            unbackedRenderFrame = 0;
+            renderUnbackedWindow();
+        });
+    }
+
+    function clearUnbackedRenderCache() {
+        if (unbackedRenderFrame) {
+            cancelAnimationFrame(unbackedRenderFrame);
+            unbackedRenderFrame = 0;
+        }
+        unbackedItemsCache = [];
+        const list = document.getElementById('unbackedList');
+        if (list) list.replaceChildren();
+        releaseUnusedObjectUrls(galleryVisibleIds);
     }
 
     function openUnbackedModal() {
@@ -4131,6 +4194,9 @@
         if (modalId === 'duplicateCheckModal') {
             clearDuplicateCheckCache();
         }
+        if (modalId === 'unbackedModal') {
+            clearUnbackedRenderCache();
+        }
     }
     
     function closeAllOverlays(options = {}) { 
@@ -4141,6 +4207,7 @@
             }
             if (m.id === 'layoutModal') clearLayoutRenderCache();
             if (m.id === 'categoryCoverModal') clearCategoryCoverRenderCache();
+            if (m.id === 'unbackedModal') clearUnbackedRenderCache();
             m.classList.remove('active');
             if (m.id === 'addModal') closeModal('addModal'); // 确保走清理逻辑
             if (m.id === 'duplicateCheckModal' && m.classList.contains('active')) clearDuplicateCheckCache();

@@ -140,6 +140,9 @@
         .page-input-wrapper { display: flex; align-items: center; gap: 4px; font-size: 14px; color: var(--text-sub); }
         .page-input { width: 40px; text-align: center; border: 1px solid var(--border-color); border-radius: 6px; padding: 4px; font-size: 14px; color: var(--text-main); background: #fff; }
         .btn-batch-del { background: #ffecec; color: var(--danger-color); padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+        .page-range-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .backup-warning { margin: 8px 0 12px; padding: 10px 12px; border-radius: var(--radius-md); background: #fff7e8; color: #9a5a00; font-size: 12px; line-height: 1.5; }
+        .backup-safe { padding: 10px 12px; border-radius: var(--radius-md); background: #edf9f2; color: #237449; }
 
         .gallery-grid { 
             display: grid; 
@@ -432,6 +435,8 @@
              <div class="storage-stat" id="storageStat">正在计算存储...</div>
              <div class="backup-actions">
                  <button class="backup-btn neutral wide" id="recentDeletedBtn" onclick="openRecentDeletedModal()">最近删除 (0)</button>
+                 <button class="backup-btn neutral wide" onclick="openPageRangeDeleteModal()">按页一键删除</button>
+                 <button class="backup-btn check wide" id="unbackedBtn" onclick="openUnbackedModal()">未备份记录 (0)</button>
                  <button class="backup-btn check wide" onclick="checkDuplicateFiles()">检查已有相同文件</button>
                  <button class="backup-btn export" onclick="openBackupExportModal()">导出备份</button>
                  <button class="backup-btn import" onclick="document.getElementById('importFile').click()">导入合并</button>
@@ -534,6 +539,45 @@
             <button class="modal-btn btn-cancel" onclick="closeModal('backupExportModal')">取消</button>
             <button class="modal-btn btn-confirm" id="backupExportConfirmBtn" onclick="confirmBackupExport()">导出</button>
         </div>
+    </div>
+
+    <div class="modal-dialog modal-md" id="pageRangeDeleteModal">
+        <div class="modal-header-row">
+            <div>
+                <div class="modal-title">按页一键删除</div>
+                <div class="zip-pending-stats" id="pageRangeDeleteSummary">选择要删除的页码范围</div>
+            </div>
+            <button class="btn-icon" onclick="closeModal('pageRangeDeleteModal')" style="font-size: 22px;">×</button>
+        </div>
+        <div class="page-range-tools">
+            <div class="form-group">
+                <label class="form-label">从第几页</label>
+                <input type="number" id="deletePageFromInput" class="form-input" min="1" value="1" oninput="updatePageRangeDeleteAction()" onchange="updatePageRangeDeleteAction(true)">
+            </div>
+            <div class="form-group">
+                <label class="form-label">到第几页</label>
+                <input type="number" id="deletePageToInput" class="form-input" min="1" value="1" oninput="updatePageRangeDeleteAction()" onchange="updatePageRangeDeleteAction(true)">
+            </div>
+        </div>
+        <div class="layout-summary" id="pageRangeDeleteHint">会删除当前筛选视图里的对应页。</div>
+        <div class="modal-actions">
+            <button class="modal-btn btn-cancel" onclick="closeModal('pageRangeDeleteModal')">取消</button>
+            <button class="modal-btn btn-confirm" id="pageRangeDeleteConfirmBtn" onclick="confirmPageRangeDelete()">确认删除</button>
+        </div>
+    </div>
+
+    <div class="modal-dialog modal-md" id="unbackedModal">
+        <div class="modal-header-row">
+            <div>
+                <div class="modal-title">未备份记录</div>
+                <div class="zip-pending-stats" id="unbackedSummary">尚未导出为可导入备份的素材</div>
+            </div>
+            <button class="btn-icon" onclick="closeModal('unbackedModal')" style="font-size: 22px;">×</button>
+        </div>
+        <div class="zip-pending-tools">
+            <button class="btn-secondary" id="exportUnbackedBtn" onclick="exportUnbackedRecords()">导出未备份</button>
+        </div>
+        <div class="recent-deleted-list" id="unbackedList"></div>
     </div>
 
     <div class="modal-dialog modal-md" id="privacyModal">
@@ -870,6 +914,7 @@
         renderGallery();
         updateStorageStat();
         updateRecentDeletedButton();
+        updateBackupStatusButton();
         updateUnclassifiedZipButton();
     }
 
@@ -1083,6 +1128,7 @@
         const cleanName = newName.trim();
         const changed = imagesData.filter(item => item.category === oldName);
         changed.forEach(item => item.category = cleanName);
+        markRecordsChanged(changed);
         await saveRecords(changed);
         tagGroups.forEach(group => {
             group.tags = group.tags.map(tag => tag === oldName ? cleanName : tag);
@@ -1147,6 +1193,7 @@
         setLoadingText(`正在合并 ${changed.length} 张素材...`);
         try {
             changed.forEach(item => { item.category = target; });
+            markRecordsChanged(changed);
             await saveRecords(changed);
 
             tagGroups.forEach(group => {
@@ -1433,6 +1480,66 @@
         });
     }
 
+    function getItemModifiedTime(item) {
+        return Number(item.modifiedAt || item.timestamp || 0);
+    }
+
+    function isItemBackedUp(item) {
+        const backedUpAt = Number(item.lastBackedUpAt || 0);
+        return backedUpAt > 0 && backedUpAt >= getItemModifiedTime(item);
+    }
+
+    function getUnbackedItems(items = imagesData) {
+        return items.filter(item => !isItemBackedUp(item));
+    }
+
+    function markRecordsChanged(records) {
+        const changedAt = Date.now();
+        records.forEach(item => {
+            item.modifiedAt = changedAt;
+        });
+        return records;
+    }
+
+    async function markRecordsBackedUp(records) {
+        if (!records.length) return;
+        const backedUpAt = Date.now();
+        records.forEach(item => {
+            item.lastBackedUpAt = backedUpAt;
+            if (!item.modifiedAt) item.modifiedAt = backedUpAt;
+        });
+        await saveRecords(records);
+        updateBackupStatusButton();
+        if (document.getElementById('unbackedModal')?.classList.contains('active')) {
+            renderUnbackedModal();
+        }
+    }
+
+    function updateBackupStatusButton() {
+        const btn = document.getElementById('unbackedBtn');
+        if (!btn) return;
+        const count = getUnbackedItems().length;
+        btn.textContent = `未备份记录 (${count})`;
+        btn.classList.toggle('neutral', count === 0);
+        btn.classList.toggle('check', count > 0);
+    }
+
+    function getPageRangeItems(fromPage, toPage, sourceItems = getCurrentViewItems()) {
+        const totalItems = sourceItems.length;
+        const totalPages = Math.ceil(totalItems / appState.itemsPerPage) || 0;
+        if (!totalPages) return { items: sourceItems, totalItems, totalPages, fromPage: 0, toPage: 0, pageCount: 0 };
+        let from = parseInt(fromPage, 10);
+        let to = parseInt(toPage, 10);
+        if (!Number.isFinite(from) || from < 1) from = 1;
+        if (!Number.isFinite(to) || to < 1) to = from;
+        from = Math.min(from, totalPages);
+        to = Math.min(to, totalPages);
+        if (from > to) [from, to] = [to, from];
+        const start = (from - 1) * appState.itemsPerPage;
+        const end = Math.min(to * appState.itemsPerPage, totalItems);
+        return { items: sourceItems.slice(start, end), totalItems, totalPages, fromPage: from, toPage: to, pageCount: to - from + 1 };
+    }
+
     async function renderGallery() {
         const renderToken = ++galleryRenderToken;
         if (appState.previewMode === 'tags') {
@@ -1630,6 +1737,7 @@
         if (item) {
             item.name = newName;
             item.category = newCategory;
+            markRecordsChanged([item]);
             await dbAction('readwrite', store => store.put(item));
             updateCategoryUI();
             renderGallery();
@@ -1658,6 +1766,7 @@
         const category = document.getElementById('batchCategoryInput').value.trim() || '默认分类';
         const selected = imagesData.filter(item => appState.selectedIds.has(item.id));
         selected.forEach(item => item.category = category);
+        markRecordsChanged(selected);
         await saveRecords(selected);
         appState.selectedIds.clear();
         closeModal('batchCategoryModal');
@@ -1970,6 +2079,7 @@
                 recordsToSave = arranged;
             }
         }
+        markRecordsChanged(recordsToSave);
         await saveRecords(recordsToSave);
         imagesData = arranged;
         appState.layoutSelectedIds.clear();
@@ -2495,6 +2605,7 @@
     function finalizePendingZipRecord(item, category, bgColor = null) {
         const record = { ...item, category, bgColor: normalizeBgChoice(bgColor || item.bgColor), pendingUnclassified: false };
         delete record.pendingUnclassified;
+        if (!record.modifiedAt) record.modifiedAt = Date.now();
         return record;
     }
 
@@ -2504,7 +2615,8 @@
             category: '未分类',
             bgColor: normalizeBgChoice(bgColor || item.bgColor),
             pendingUnclassified: true,
-            timestamp: item.timestamp || Date.now()
+            timestamp: item.timestamp || Date.now(),
+            modifiedAt: item.modifiedAt || Date.now()
         };
     }
 
@@ -2781,7 +2893,8 @@
                             data: file,
                             originalFileName: file.name,
                             bgColor: 'white',
-                            timestamp: Date.now()
+                            timestamp: Date.now(),
+                            modifiedAt: Date.now()
                         });
                         savedCount++;
                     } else {
@@ -2800,7 +2913,8 @@
                                 zipSource: file.name,
                                 zipPath: item.path,
                                 bgColor: 'white',
-                                timestamp: Date.now()
+                                timestamp: Date.now(),
+                                modifiedAt: Date.now()
                             });
                             if (pendingRecords.length % WORK_YIELD_INTERVAL === 0) {
                                 setLoadingText(`已解析 ${pendingRecords.length} 张 ZIP 图片...`);
@@ -2821,7 +2935,8 @@
                     data: file,
                     originalFileName: file.name,
                     bgColor: bgChoice,
-                    timestamp: Date.now() 
+                    timestamp: Date.now(),
+                    modifiedAt: Date.now()
                 });
                 savedCount++;
                 if (records.length >= DB_WRITE_BATCH_SIZE) await flushRecords();
@@ -2849,7 +2964,10 @@
 
     async function batchDelete() {
         if (appState.selectedIds.size === 0) return;
-        if (!confirm(`确定删除选定的 ${appState.selectedIds.size} 项素材吗？可在最近删除中恢复，24 小时后自动永久删除。`)) return;
+        const selectedItems = Array.from(appState.selectedIds).map(getImageById).filter(Boolean);
+        const unbackedCount = getUnbackedItems(selectedItems).length;
+        const unbackedText = unbackedCount ? `\n\n注意：其中 ${unbackedCount} 项没有可导入备份记录。建议先导出备份。` : '';
+        if (!confirm(`确定删除选定的 ${appState.selectedIds.size} 项素材吗？可在最近删除中恢复，24 小时后自动永久删除。${unbackedText}`)) return;
         
         const ids = Array.from(appState.selectedIds);
         for (let id of ids) {
@@ -3164,6 +3282,144 @@
         await exportData(state.items.slice(0, state.itemCount), state.mode);
     }
 
+    function getPageRangeDeleteState() {
+        const fromInput = document.getElementById('deletePageFromInput');
+        const toInput = document.getElementById('deletePageToInput');
+        const state = getPageRangeItems(fromInput?.value, toInput?.value);
+        state.unbackedItems = getUnbackedItems(state.items);
+        return state;
+    }
+
+    function updatePageRangeDeleteAction(writeValue = false) {
+        const state = getPageRangeDeleteState();
+        const fromInput = document.getElementById('deletePageFromInput');
+        const toInput = document.getElementById('deletePageToInput');
+        const summary = document.getElementById('pageRangeDeleteSummary');
+        const hint = document.getElementById('pageRangeDeleteHint');
+        const confirmBtn = document.getElementById('pageRangeDeleteConfirmBtn');
+        if (fromInput) {
+            fromInput.max = state.totalPages || 1;
+            if (writeValue && state.totalPages > 0) fromInput.value = state.fromPage || 1;
+        }
+        if (toInput) {
+            toInput.max = state.totalPages || 1;
+            if (writeValue && state.totalPages > 0) toInput.value = state.toPage || 1;
+        }
+        if (summary) summary.textContent = `当前视图共 ${state.totalItems} 项，每页 ${appState.itemsPerPage} 项，共 ${state.totalPages} 页`;
+        if (hint) {
+            hint.className = state.unbackedItems.length ? 'backup-warning' : 'layout-summary backup-safe';
+            hint.textContent = state.items.length
+                ? `将删除第 ${state.fromPage} 到 ${state.toPage} 页，共 ${state.items.length} 项；其中 ${state.unbackedItems.length} 项没有可导入备份记录。`
+                : '当前视图没有可删除的素材。';
+        }
+        if (confirmBtn) {
+            confirmBtn.disabled = state.items.length === 0;
+            confirmBtn.textContent = state.items.length ? `删除 ${state.pageCount} 页 / ${state.items.length} 项` : '确认删除';
+        }
+    }
+
+    function openPageRangeDeleteModal() {
+        const items = getCurrentViewItems();
+        if (!items.length) return alert('当前视图没有可删除的素材');
+        const totalPages = Math.ceil(items.length / appState.itemsPerPage) || 1;
+        const fromInput = document.getElementById('deletePageFromInput');
+        const toInput = document.getElementById('deletePageToInput');
+        const defaultPage = Math.min(appState.currentPage || 1, totalPages);
+        if (fromInput) {
+            fromInput.value = defaultPage;
+            fromInput.max = totalPages;
+        }
+        if (toInput) {
+            toInput.value = defaultPage;
+            toInput.max = totalPages;
+        }
+        openModal('pageRangeDeleteModal');
+        updatePageRangeDeleteAction(true);
+        setTimeout(() => fromInput?.focus(), 50);
+    }
+
+    async function confirmPageRangeDelete() {
+        const state = getPageRangeDeleteState();
+        if (!state.items.length) return alert('当前页码范围没有可删除的素材');
+        const unbackedText = state.unbackedItems.length
+            ? `\n\n注意：其中 ${state.unbackedItems.length} 项没有可导入备份记录。建议先导出备份。`
+            : '';
+        if (!confirm(`确定删除当前视图第 ${state.fromPage} 到 ${state.toPage} 页的 ${state.items.length} 项素材吗？可在最近删除中恢复，24 小时后自动永久删除。${unbackedText}`)) return;
+        const ids = state.items.map(item => item.id);
+        ids.forEach(revokeItemObjectUrl);
+        await softDeleteRecords(ids);
+        closeModal('pageRangeDeleteModal');
+        if (appState.isBatchMode) exitBatchMode();
+        await loadData();
+    }
+
+    function formatBackupStatusText(item) {
+        if (isItemBackedUp(item)) {
+            return `已备份：${new Date(item.lastBackedUpAt).toLocaleString('zh-CN')}`;
+        }
+        return item.lastBackedUpAt ? '备份后又修改过' : '未记录可导入备份';
+    }
+
+    function createBackupStatusRow(item) {
+        const row = document.createElement('div');
+        row.className = 'recent-deleted-row';
+        let thumb;
+        if ((item.type || 'image') === 'zip') {
+            thumb = document.createElement('div');
+            thumb.className = 'recent-deleted-thumb placeholder';
+            thumb.textContent = 'ZIP';
+        } else {
+            thumb = document.createElement('img');
+            thumb.className = 'recent-deleted-thumb';
+            thumb.src = getItemUrl(item);
+            thumb.loading = 'lazy';
+            thumb.decoding = 'async';
+        }
+        const info = document.createElement('div');
+        const name = document.createElement('div');
+        name.className = 'recent-deleted-name';
+        name.textContent = item.name || item.originalFileName || '素材';
+        const meta = document.createElement('div');
+        meta.className = 'recent-deleted-meta';
+        meta.textContent = `${item.category || '未分类'} · ${formatBackupStatusText(item)}`;
+        info.append(name, meta);
+        const actions = document.createElement('div');
+        actions.className = 'recent-deleted-actions';
+        row.append(thumb, info, actions);
+        return row;
+    }
+
+    function renderUnbackedModal() {
+        const list = document.getElementById('unbackedList');
+        const summary = document.getElementById('unbackedSummary');
+        const exportBtn = document.getElementById('exportUnbackedBtn');
+        if (!list) return;
+        list.replaceChildren();
+        const items = getUnbackedItems();
+        if (summary) summary.textContent = items.length ? `${items.length} 项没有可导入备份记录` : '所有素材都有可导入备份记录';
+        if (exportBtn) exportBtn.disabled = !items.length;
+        if (!items.length) {
+            const empty = document.createElement('div');
+            empty.className = 'recent-deleted-empty';
+            empty.textContent = '没有未备份记录';
+            list.appendChild(empty);
+            return;
+        }
+        items.forEach(item => list.appendChild(createBackupStatusRow(item)));
+    }
+
+    function openUnbackedModal() {
+        renderUnbackedModal();
+        openModal('unbackedModal');
+    }
+
+    async function exportUnbackedRecords() {
+        const items = getUnbackedItems();
+        if (!items.length) return alert('没有未备份记录');
+        closeModal('unbackedModal');
+        await exportData(items, 'importable');
+    }
+
     function sanitizeExportPathPart(value, fallback = '未分类') {
         const clean = String(value || '')
             .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
@@ -3268,6 +3524,9 @@
             a.download = (exportMode === 'images' ? 'GalleryImages_' : 'GalleryBackup_') + Date.now() + '.zip';
             a.click();
             URL.revokeObjectURL(url);
+            if (exportMode !== 'images') {
+                await markRecordsBackedUp(itemsToExport);
+            }
         } catch (err) {
             console.error(err);
             alert('导出失败：' + (err.message || '文件可能过大'));
@@ -3312,7 +3571,8 @@
             data,
             originalFileName,
             bgColor: pickFirstValue(item, ['bgColor', 'background', 'bg']) || 'white',
-            timestamp: Number(item.timestamp || item.createdAt || item.time) || Date.now()
+            timestamp: Number(item.timestamp || item.createdAt || item.time) || Date.now(),
+            modifiedAt: Number(item.modifiedAt || item.updatedAt || item.timestamp || item.createdAt || item.time) || Date.now()
         };
     }
 
@@ -3677,7 +3937,10 @@
     async function deleteSelectedDuplicates() {
         if (!duplicateSelectedIds.size) return;
         const ids = Array.from(duplicateSelectedIds);
-        if (!confirm(`确定删除选中的 ${ids.length} 项相同文件吗？可在最近删除中恢复，24 小时后自动永久删除。`)) return;
+        const selectedItems = ids.map(getImageById).filter(Boolean);
+        const unbackedCount = getUnbackedItems(selectedItems).length;
+        const unbackedText = unbackedCount ? `\n\n注意：其中 ${unbackedCount} 项没有可导入备份记录。建议先导出备份。` : '';
+        if (!confirm(`确定删除选中的 ${ids.length} 项相同文件吗？可在最近删除中恢复，24 小时后自动永久删除。${unbackedText}`)) return;
         ids.forEach(id => revokeItemObjectUrl(id));
         await softDeleteRecords(ids);
         duplicateSelectedIds.clear();

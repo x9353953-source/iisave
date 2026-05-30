@@ -3100,7 +3100,7 @@
         });
     }
 
-    function getItemUrl(item, keepForViewer = false) {
+    function getItemUrl(item, keepForViewer = false, extraKeepIds = new Set()) {
         if (item.data instanceof Blob) {
             if (!objectUrlCache.has(item.id)) {
                 objectUrlCache.set(item.id, URL.createObjectURL(item.data));
@@ -3111,7 +3111,7 @@
             }
             const url = objectUrlCache.get(item.id);
             if (keepForViewer) viewerObjectUrl = url;
-            pruneObjectUrlCache(keepForViewer ? new Set([item.id]) : new Set());
+            pruneObjectUrlCache(new Set([...(extraKeepIds || []), ...(keepForViewer ? [item.id] : [])]));
             return url;
         }
         return item.data;
@@ -3368,7 +3368,7 @@
         return item.lastBackedUpAt ? '备份后又修改过' : '未记录可导入备份';
     }
 
-    function createBackupStatusRow(item) {
+    function createBackupStatusRow(item, keepIds = new Set()) {
         const row = document.createElement('div');
         row.className = 'recent-deleted-row unbacked-row';
         let thumb;
@@ -3379,7 +3379,7 @@
         } else {
             thumb = document.createElement('img');
             thumb.className = 'recent-deleted-thumb';
-            thumb.src = getItemUrl(item);
+            thumb.src = getItemUrl(item, false, keepIds);
             thumb.loading = 'lazy';
             thumb.decoding = 'async';
         }
@@ -3432,7 +3432,8 @@
         const viewportHeight = list.clientHeight || 520;
         const start = Math.max(0, Math.floor(list.scrollTop / UNBACKED_ROW_HEIGHT) - UNBACKED_RENDER_BUFFER);
         const end = Math.min(unbackedItemsCache.length, Math.ceil((list.scrollTop + viewportHeight) / UNBACKED_ROW_HEIGHT) + UNBACKED_RENDER_BUFFER);
-        const visibleIds = new Set();
+        const visibleItems = unbackedItemsCache.slice(start, end);
+        const visibleIds = new Set(visibleItems.filter(item => (item.type || 'image') !== 'zip').map(item => item.id));
         const spacer = document.createElement('div');
         spacer.className = 'unbacked-spacer';
         spacer.style.height = `${unbackedItemsCache.length * UNBACKED_ROW_HEIGHT}px`;
@@ -3440,10 +3441,8 @@
         windowEl.className = 'unbacked-window';
         windowEl.style.transform = `translateY(${start * UNBACKED_ROW_HEIGHT}px)`;
         const fragment = document.createDocumentFragment();
-        for (let i = start; i < end; i++) {
-            const item = unbackedItemsCache[i];
-            if ((item.type || 'image') !== 'zip') visibleIds.add(item.id);
-            fragment.appendChild(createBackupStatusRow(item));
+        for (const item of visibleItems) {
+            fragment.appendChild(createBackupStatusRow(item, visibleIds));
         }
         windowEl.appendChild(fragment);
         spacer.appendChild(windowEl);

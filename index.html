@@ -217,6 +217,7 @@
         .zip-choice-actions { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 18px; }
         .zip-pending-stats { font-size: 12px; color: var(--text-sub); line-height: 1.5; }
         .zip-pending-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+        .zip-pending-search { flex: 1 1 220px; min-width: 180px; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--border-color); background: #fff; color: var(--text-main); font-size: 13px; }
         .zip-pending-list { height: min(62vh, 560px); overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; }
         .zip-pending-row { height: 198px; display: grid; grid-template-columns: 28px minmax(128px, 168px) minmax(0, 1fr); align-items: center; gap: 14px; padding: 12px; border-bottom: 1px solid var(--border-color); background: #fff; cursor: pointer; }
         .zip-pending-row:last-child { border-bottom: none; }
@@ -710,8 +711,10 @@
             <button class="btn-icon" onclick="cancelPendingZipImport()" style="font-size: 22px;">×</button>
         </div>
         <div class="zip-pending-tools">
+            <input class="zip-pending-search" id="zipPendingSearchInput" type="search" placeholder="搜索文件名" oninput="setPendingZipSearch(this.value)">
             <button class="btn-secondary" onclick="selectVisiblePendingZip()">全选当前可见</button>
             <button class="btn-secondary" onclick="clearPendingZipSelection()">取消选择</button>
+            <button class="btn-secondary" onclick="clearPendingZipSearch()">清空搜索</button>
         </div>
         <div class="zip-pending-list" id="zipPendingList" onscroll="scheduleRenderPendingZipList()"></div>
         <div class="form-group" style="margin-top: 16px;">
@@ -789,6 +792,8 @@
     let pendingZipDefaultCategory = '默认分类';
     let pendingZipDefaultBgColor = 'white';
     let pendingZipVisibleRange = { start: 0, end: 0 };
+    let pendingZipVisibleIds = new Set();
+    let pendingZipSearchQuery = '';
     let layoutMatchesCache = [];
     let layoutRenderFrame = 0;
     let categoryCovers = {};
@@ -2564,16 +2569,54 @@
         rebuildPendingZipIndex();
         pendingZipSelectedIds.clear();
         pendingZipVisibleRange = { start: 0, end: 0 };
+        pendingZipVisibleIds.clear();
+        pendingZipSearchQuery = '';
+        const searchInput = document.getElementById('zipPendingSearchInput');
+        if (searchInput) searchInput.value = '';
         const list = document.getElementById('zipPendingList');
         if (list) list.innerHTML = '';
     }
 
     function updatePendingZipSummary() {
-        const text = `剩余 ${pendingZipRecords.length} 张，已选 ${pendingZipSelectedIds.size} 张`;
+        const filteredCount = pendingZipSearchQuery ? getFilteredPendingZipRecords().length : pendingZipRecords.length;
+        const matchText = pendingZipSearchQuery ? `，匹配 ${filteredCount} 张` : '';
+        const text = `剩余 ${pendingZipRecords.length} 张${matchText}，已选 ${pendingZipSelectedIds.size} 张`;
         const pendingEl = document.getElementById('zipPendingSummary');
         const choiceEl = document.getElementById('zipChoiceSummary');
         if (pendingEl) pendingEl.textContent = text;
         if (choiceEl) choiceEl.textContent = `共 ${pendingZipRecords.length} 张，将使用“${pendingZipDefaultCategory}”作为当前分类`;
+    }
+
+    function getPendingZipSearchText(item) {
+        return [
+            item?.name,
+            item?.originalFileName,
+            item?.zipPath,
+            item?.zipSource
+        ].filter(Boolean).join(' ').toLowerCase();
+    }
+
+    function getFilteredPendingZipRecords() {
+        if (!pendingZipSearchQuery) return pendingZipRecords;
+        return pendingZipRecords.filter(item => getPendingZipSearchText(item).includes(pendingZipSearchQuery));
+    }
+
+    function setPendingZipSearch(value) {
+        pendingZipSearchQuery = String(value || '').trim().toLowerCase();
+        const list = document.getElementById('zipPendingList');
+        if (list) list.scrollTop = 0;
+        renderPendingZipList();
+    }
+
+    function resetPendingZipSearch() {
+        pendingZipSearchQuery = '';
+        const input = document.getElementById('zipPendingSearchInput');
+        if (input) input.value = '';
+    }
+
+    function clearPendingZipSearch() {
+        resetPendingZipSearch();
+        setPendingZipSearch('');
     }
 
     function normalizeBgChoice(value) {
@@ -2635,6 +2678,7 @@
         pendingZipDefaultCategory = defaultCategory || '默认分类';
         pendingZipDefaultBgColor = normalizeBgChoice(defaultBgColor);
         document.getElementById('zipChoiceBgSelect').value = pendingZipDefaultBgColor;
+        resetPendingZipSearch();
         updatePendingZipSummary();
         openModal('zipImportChoiceModal');
     }
@@ -2690,6 +2734,8 @@
         closeModal('zipImportChoiceModal', { keepPending: true });
         document.getElementById('zipPendingCategoryInput').value = pendingZipDefaultCategory;
         document.getElementById('zipPendingBgSelect').value = pendingZipDefaultBgColor;
+        const searchInput = document.getElementById('zipPendingSearchInput');
+        if (searchInput) searchInput.value = pendingZipSearchQuery;
         renderCategoryChips('zipPendingQuickCategorySelect', 'zipPendingCategoryInput');
         updatePendingZipSummary();
         openModal('zipPendingModal', { keepPending: true });
@@ -2705,6 +2751,7 @@
         pendingZipDefaultBgColor = normalizeBgChoice(pendingZipRecords[0]?.bgColor || 'white');
         document.getElementById('zipPendingCategoryInput').value = pendingZipDefaultCategory;
         document.getElementById('zipPendingBgSelect').value = pendingZipDefaultBgColor;
+        resetPendingZipSearch();
         renderCategoryChips('zipPendingQuickCategorySelect', 'zipPendingCategoryInput');
         updatePendingZipSummary();
         openModal('zipPendingModal', { keepPending: true });
@@ -2726,6 +2773,17 @@
         if (!total) {
             list.innerHTML = '<div class="preview-item">暂无待分类图片</div>';
             cleanupPendingZipThumbs();
+            pendingZipVisibleIds.clear();
+            updatePendingZipSummary();
+            return;
+        }
+        const records = getFilteredPendingZipRecords();
+        const filteredTotal = records.length;
+        if (!filteredTotal) {
+            list.innerHTML = '<div class="preview-item">没有匹配的文件名</div>';
+            cleanupPendingZipThumbs();
+            pendingZipVisibleRange = { start: 0, end: 0 };
+            pendingZipVisibleIds.clear();
             updatePendingZipSummary();
             return;
         }
@@ -2733,16 +2791,16 @@
         const viewportHeight = list.clientHeight || 360;
         const scrollTop = list.scrollTop || 0;
         const visibleCount = Math.ceil(viewportHeight / ZIP_PENDING_ROW_HEIGHT);
-        const maxStart = Math.max(0, total - visibleCount);
+        const maxStart = Math.max(0, filteredTotal - visibleCount);
         const start = Math.min(maxStart, Math.max(0, Math.floor(scrollTop / ZIP_PENDING_ROW_HEIGHT) - ZIP_PENDING_BUFFER));
-        const end = Math.min(total, start + visibleCount + ZIP_PENDING_BUFFER * 2);
+        const end = Math.min(filteredTotal, start + visibleCount + ZIP_PENDING_BUFFER * 2);
         pendingZipVisibleRange = { start, end };
 
         const visibleIds = new Set();
         const rows = [];
         rows.push(`<div class="zip-pending-spacer" style="height:${start * ZIP_PENDING_ROW_HEIGHT}px"></div>`);
         for (let i = start; i < end; i++) {
-            const item = pendingZipRecords[i];
+            const item = records[i];
             visibleIds.add(item.id);
             if (!pendingZipThumbUrls.has(item.id)) {
                 pendingZipThumbUrls.set(item.id, URL.createObjectURL(item.data));
@@ -2768,8 +2826,9 @@
                 </div>
             `);
         }
-        rows.push(`<div class="zip-pending-spacer" style="height:${(total - end) * ZIP_PENDING_ROW_HEIGHT}px"></div>`);
+        rows.push(`<div class="zip-pending-spacer" style="height:${(filteredTotal - end) * ZIP_PENDING_ROW_HEIGHT}px"></div>`);
         list.innerHTML = rows.join('');
+        pendingZipVisibleIds = visibleIds;
         cleanupPendingZipThumbs(visibleIds);
         updatePendingZipSummary();
     }
@@ -2813,9 +2872,7 @@
     }
 
     function selectVisiblePendingZip() {
-        for (let i = pendingZipVisibleRange.start; i < pendingZipVisibleRange.end; i++) {
-            if (pendingZipRecords[i]) pendingZipSelectedIds.add(pendingZipRecords[i].id);
-        }
+        pendingZipVisibleIds.forEach(id => pendingZipSelectedIds.add(id));
         renderPendingZipList();
     }
 

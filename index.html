@@ -215,6 +215,7 @@
         .modal-header-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
         .modal-header-row .modal-title { margin-bottom: 0; text-align: left; }
         .zip-choice-actions { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 18px; }
+        .zip-choice-inline-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .zip-pending-stats { font-size: 12px; color: var(--text-sub); line-height: 1.5; }
         .zip-pending-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
         .zip-pending-search { flex: 1 1 220px; min-width: 180px; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--border-color); background: #fff; color: var(--text-main); font-size: 13px; }
@@ -246,6 +247,10 @@
         .filename-edit-new { color: var(--text-main); font-weight: 700; }
         .filename-edit-empty { padding: 18px; text-align: center; color: var(--text-sub); font-size: 13px; }
         .filename-edit-hint { margin-top: 8px; color: var(--text-sub); font-size: 12px; line-height: 1.5; }
+        .filename-digit-options { display: flex; flex-wrap: wrap; gap: 8px; }
+        .filename-digit-chip { display: inline-flex; align-items: center; gap: 5px; padding: 8px 10px; border-radius: 14px; background: #f5f6f8; color: var(--text-main); font-size: 12px; font-weight: 700; cursor: pointer; }
+        .filename-digit-chip input { width: 16px; height: 16px; accent-color: var(--primary-color); }
+        .filename-digit-custom { margin-top: 10px; }
         @media (max-width: 520px) {
             .modal-dialog.modal-wide { width: 94%; padding: 18px; }
             .filename-edit-grid { grid-template-columns: 1fr; }
@@ -556,7 +561,15 @@
         <div class="filename-edit-grid">
             <div class="form-group">
                 <label class="form-label">剔除连续几位数字</label>
-                <input type="number" id="fileNameDigitInput" class="form-input" min="0" step="1" placeholder="例如 6，只剔除连续 6 位数字">
+                <div class="filename-digit-options" id="fileNameDigitOptions">
+                    <label class="filename-digit-chip"><input type="checkbox" value="4" checked>4 位</label>
+                    <label class="filename-digit-chip"><input type="checkbox" value="5" checked>5 位</label>
+                    <label class="filename-digit-chip"><input type="checkbox" value="6" checked>6 位</label>
+                    <label class="filename-digit-chip"><input type="checkbox" value="7">7 位</label>
+                    <label class="filename-digit-chip"><input type="checkbox" value="8">8 位</label>
+                </div>
+                <input type="text" id="fileNameDigitCustomInput" class="form-input filename-digit-custom" placeholder="其他位数，可选，如 9 或 3,9">
+                <div class="filename-edit-hint">默认会剔除连续 4、5、6 位数字；也可以勾选其它位数。</div>
             </div>
             <div class="form-group">
                 <label class="form-label">剔除文字</label>
@@ -759,8 +772,11 @@
         </div>
         <div class="zip-choice-actions">
             <button class="modal-btn btn-confirm" onclick="saveAllPendingZipToCurrentCategory()">全部放入当前分类</button>
+            <div class="zip-choice-inline-actions">
+                <button class="modal-btn btn-cancel" onclick="openPendingZipModal()">继续选择分类</button>
+                <button class="modal-btn btn-cancel" onclick="openFileNameEditModal('pendingZip')">编辑文件名</button>
+            </div>
             <button class="modal-btn btn-cancel" onclick="savePendingZipForLater()">先存入未分类窗口</button>
-            <button class="modal-btn btn-cancel" onclick="openPendingZipModal()">手动选择分类</button>
         </div>
     </div>
 
@@ -1835,8 +1851,8 @@
 
     function cleanFileNameByRules(name, rules) {
         let result = String(name || '');
-        if (rules.digitLength > 0) {
-            result = result.replace(/\d+/g, part => part.length === rules.digitLength ? '' : part);
+        if (rules.digitLengths && rules.digitLengths.size) {
+            result = result.replace(/\d+/g, part => rules.digitLengths.has(part.length) ? '' : part);
         }
         rules.texts.forEach(text => {
             result = result.replace(new RegExp(escapeRegExp(text), 'g'), '');
@@ -1844,10 +1860,20 @@
         return result.replace(/\s{2,}/g, ' ').trim();
     }
 
+    function parseDigitLengths(value) {
+        return String(value || '')
+            .split(/[\s,，、]+/)
+            .map(item => parseInt(item, 10))
+            .filter(num => Number.isFinite(num) && num > 0 && num <= 32);
+    }
+
     function getFileNameEditRules() {
-        const digitLength = parseInt(document.getElementById('fileNameDigitInput').value, 10);
+        const checkedLengths = Array.from(document.querySelectorAll('#fileNameDigitOptions input:checked'))
+            .map(input => parseInt(input.value, 10))
+            .filter(num => Number.isFinite(num) && num > 0);
+        const customLengths = parseDigitLengths(document.getElementById('fileNameDigitCustomInput').value);
         return {
-            digitLength: Number.isFinite(digitLength) && digitLength > 0 ? digitLength : 0,
+            digitLengths: new Set([...checkedLengths, ...customLengths]),
             texts: parseFileNameRemovalTexts(document.getElementById('fileNameTextInput').value)
         };
     }
@@ -1896,7 +1922,10 @@
         if (source === 'pendingZip' && !pendingZipRecords.length) return alert('没有待分类图片');
         if (source !== 'pendingZip' && !imagesData.length) return alert('素材库里还没有素材');
         fileNameEditState = { source, candidates: [], selectedIds: new Set() };
-        document.getElementById('fileNameDigitInput').value = '';
+        document.querySelectorAll('#fileNameDigitOptions input').forEach(input => {
+            input.checked = ['4', '5', '6'].includes(input.value);
+        });
+        document.getElementById('fileNameDigitCustomInput').value = '';
         document.getElementById('fileNameTextInput').value = '';
         populateFileNameScopeOptions(source);
         resetFileNameEditPreview();
@@ -1912,7 +1941,7 @@
 
     function previewFileNameEdits() {
         const rules = getFileNameEditRules();
-        if (!rules.digitLength && !rules.texts.length) return alert('请先填写要剔除的数字位数或文字');
+        if (!rules.digitLengths.size && !rules.texts.length) return alert('请先选择要剔除的数字位数或填写要剔除的文字');
         const sourceItems = getFileNameEditSourceItems();
         const candidates = sourceItems.map(item => {
             const oldName = String(item.name || '').trim();

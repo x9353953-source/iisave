@@ -247,6 +247,13 @@
         .filename-edit-new { color: var(--text-main); font-weight: 700; }
         .filename-edit-empty { padding: 18px; text-align: center; color: var(--text-sub); font-size: 13px; }
         .filename-edit-hint { margin-top: 8px; color: var(--text-sub); font-size: 12px; line-height: 1.5; }
+        .keyword-classify-row { display: grid; grid-template-columns: 28px 58px minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); background: #fff; cursor: pointer; }
+        .keyword-classify-row:last-child { border-bottom: none; }
+        .keyword-classify-row.skipped { opacity: 0.5; }
+        .keyword-classify-meta { color: var(--text-sub); font-size: 12px; line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .keyword-classify-target { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+        .keyword-classify-target span { flex: 0 0 auto; color: var(--text-sub); font-size: 12px; }
+        .keyword-classify-target select { min-width: 0; flex: 1; height: 34px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0 8px; background: #fff; color: var(--text-main); font-size: 13px; }
         .filename-digit-options { display: flex; flex-wrap: wrap; gap: 8px; }
         .filename-digit-chip { display: inline-flex; align-items: center; gap: 5px; padding: 8px 10px; border-radius: 14px; background: #f5f6f8; color: var(--text-main); font-size: 12px; font-weight: 700; cursor: pointer; }
         .filename-digit-chip input { width: 16px; height: 16px; accent-color: var(--primary-color); }
@@ -382,6 +389,7 @@
             <input type="text" id="searchInput" class="search-input" placeholder="搜索名称、标签..." oninput="debounceRender()">
         </div>
         <button class="btn-secondary pending-continue-btn" onclick="openFileNameEditModal('library')">编辑文件名</button>
+        <button class="btn-secondary pending-continue-btn" onclick="openKeywordClassifyModal()">关键词分类</button>
         <button class="btn-secondary pending-continue-btn" id="continueUnclassifiedBtn" onclick="openStoredUnclassifiedZipModal()" style="display: none;">继续保存未分类的</button>
         <div class="preview-mode-toggle" id="previewModeToggle">
             <button class="preview-mode-btn active" id="itemsPreviewBtn" onclick="setPreviewMode('items')">图片预览</button>
@@ -425,6 +433,7 @@
         <span id="selectedCount" style="font-weight: 600; color: var(--text-main); font-size: 14px;">已选 0 项</span>
         <div class="batch-actions" style="display: flex; gap: 8px;">
             <button class="btn-secondary" style="background: #34c759; color: white;" onclick="openBatchCategoryModal()">分类</button>
+            <button class="btn-secondary" onclick="openKeywordClassifyModal('selected')">关键词</button>
             <button class="btn-secondary" onclick="openFileNameEditModal('library')">改名</button>
             <button class="btn-secondary" id="batchDownloadBtn" style="background: var(--primary-color); color: white;" onclick="batchDownload()">下载</button>
             <button class="btn-batch-del" onclick="batchDelete()">删除</button>
@@ -442,7 +451,7 @@
             </div>
         </div>
         <div class="sidebar-tools" id="sidebarTools">
-            <div style="font-size: 12px; color: var(--text-sub);">选择标签后，可纳入大类；点开大类可移出或删除大类</div>
+            <div style="font-size: 12px; color: var(--text-sub);">选择标签后，可纳入大类；长按标签可改名和配置匹配关键词</div>
             <div class="sidebar-tools-row">
                 <input class="form-input" id="groupNameInput" placeholder="新建/重用大类名">
             </div>
@@ -547,6 +556,57 @@
         <div class="modal-actions">
             <button class="modal-btn btn-cancel" onclick="closeModal('batchCategoryModal')">取消</button>
             <button class="modal-btn btn-confirm" onclick="applyBatchCategory()">确认分类</button>
+        </div>
+    </div>
+
+    <div class="modal-dialog modal-md" id="tagKeywordModal">
+        <div class="modal-header-row">
+            <div>
+                <div class="modal-title">标签关键词</div>
+                <div class="zip-pending-stats">长按标签打开；分类时只匹配文件名文本。</div>
+            </div>
+            <button class="btn-icon" onclick="closeModal('tagKeywordModal')" style="font-size: 22px;">×</button>
+        </div>
+        <div class="form-group">
+            <label class="form-label">标签名称</label>
+            <input type="text" id="tagKeywordNameInput" class="form-input" placeholder="输入标签名称">
+            <input type="hidden" id="tagKeywordOldNameInput">
+        </div>
+        <div class="form-group">
+            <label class="form-label">匹配关键词</label>
+            <textarea id="tagKeywordTextInput" class="form-input" rows="5" style="resize: vertical;" placeholder="多个关键词可用逗号、空格或换行分隔"></textarea>
+            <div class="filename-edit-hint">例如：古风, 国风, 古典。只保存关键词，不读取图片内容。</div>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn btn-cancel" onclick="closeModal('tagKeywordModal')">取消</button>
+            <button class="modal-btn btn-confirm" onclick="saveTagKeywordSettings()">保存</button>
+        </div>
+    </div>
+
+    <div class="modal-dialog modal-md modal-wide" id="keywordClassifyModal">
+        <div class="modal-header-row">
+            <div>
+                <div class="modal-title">按关键词分类</div>
+                <div class="zip-pending-stats" id="keywordClassifySummary">先生成预览，再确认分类。</div>
+            </div>
+            <button class="btn-icon" onclick="closeModal('keywordClassifyModal')" style="font-size: 22px;">×</button>
+        </div>
+        <div class="form-group">
+            <label class="form-label">处理范围</label>
+            <select class="form-input" id="keywordClassifyScopeSelect"></select>
+            <div class="filename-edit-hint">只读取原始文件名、ZIP 路径和素材名称，不读取图片内容。</div>
+        </div>
+        <div class="zip-pending-tools">
+            <button class="btn-secondary" onclick="previewKeywordClassification()">生成预览</button>
+            <button class="btn-secondary" onclick="selectAllKeywordClassifyCandidates()">全选预览</button>
+            <button class="btn-secondary" onclick="clearKeywordClassifySelection()">取消选择</button>
+        </div>
+        <div class="filename-edit-panel" id="keywordClassifyList">
+            <div class="filename-edit-empty">还没有生成预览</div>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn btn-cancel" onclick="closeModal('keywordClassifyModal')">取消</button>
+            <button class="modal-btn btn-confirm" id="keywordClassifyConfirmBtn" onclick="applyKeywordClassification()">确认分类</button>
         </div>
     </div>
 
@@ -891,6 +951,9 @@
     let uploadPreviewFrame = 0;
     let pendingZipRenderFrame = 0;
     let fileNameEditState = { source: 'library', candidates: [], selectedIds: new Set() };
+    let tagKeywordRules = {};
+    let tagKeywordEditTarget = '';
+    let keywordClassifyState = { candidates: [], selectedIds: new Set() };
     let isBatchDownloading = false;
     
     // 记录上一次选定的统一底色
@@ -1002,6 +1065,7 @@
             .sort((a, b) => b.deletedAt - a.deletedAt);
         tagGroups = normalizeTagGroups(await getMetaValue('tagGroups', []));
         categoryCovers = normalizeCategoryCovers(await getMetaValue('categoryCovers', {}));
+        tagKeywordRules = normalizeTagKeywordRules(await getMetaValue('tagKeywordRules', {}));
         updateCategoryUI();
         updatePreviewModeUI();
         renderGallery();
@@ -1106,6 +1170,34 @@
         localStorage.setItem('gallery:categoryCovers', JSON.stringify(categoryCovers));
     }
 
+    function parseTagKeywordText(value) {
+        return Array.from(new Set(String(value || '')
+            .split(/[\s,，、;；]+/)
+            .map(item => item.trim())
+            .filter(Boolean)));
+    }
+
+    function normalizeTagKeywordRules(rules) {
+        if (!rules || typeof rules !== 'object' || Array.isArray(rules)) return {};
+        const categories = new Set(getAllCategories());
+        const normalized = {};
+        Object.entries(rules).forEach(([category, keywords]) => {
+            const cleanCategory = String(category || '').trim();
+            if (!cleanCategory || !categories.has(cleanCategory)) return;
+            const cleanKeywords = Array.isArray(keywords)
+                ? parseTagKeywordText(keywords.join('\n'))
+                : parseTagKeywordText(keywords);
+            if (cleanKeywords.length) normalized[cleanCategory] = cleanKeywords;
+        });
+        return normalized;
+    }
+
+    async function saveTagKeywordRules() {
+        tagKeywordRules = normalizeTagKeywordRules(tagKeywordRules);
+        localStorage.setItem('gallery:tagKeywordRules', JSON.stringify(tagKeywordRules));
+        updateCategoryUI();
+    }
+
     function selectQuickCategory(inputId, cat) {
         const input = document.getElementById(inputId);
         if (input) input.value = cat;
@@ -1179,11 +1271,13 @@
     }
 
     let tagPressTimer;
+    let suppressNextTagClick = false;
     function startTagPress(type, value) {
         clearTimeout(tagPressTimer);
         tagPressTimer = setTimeout(() => {
+            suppressNextTagClick = true;
             if (type === 'group') renameGroup(value);
-            else renameTag(value);
+            else openTagKeywordModal(value);
         }, 600);
     }
 
@@ -1192,6 +1286,10 @@
     }
 
     function handleTagClick(cat) {
+        if (suppressNextTagClick) {
+            suppressNextTagClick = false;
+            return;
+        }
         if (appState.isSidebarEditMode) {
             if (cat === ZIP_CATEGORY) return alert('ZIP存储标签不可加入大类');
             if (appState.selectedTags.has(cat)) appState.selectedTags.delete(cat);
@@ -1203,6 +1301,10 @@
     }
 
     function handleGroupClick(groupId) {
+        if (suppressNextTagClick) {
+            suppressNextTagClick = false;
+            return;
+        }
         const filterKey = `group:${groupId}`;
         appState.expandedGroupId = appState.expandedGroupId === groupId ? '' : groupId;
         appState.currentCategory = filterKey;
@@ -1215,10 +1317,16 @@
         updateCategoryUI();
     }
 
-    async function renameTag(oldName) {
-        const newName = prompt('Rename tag', oldName);
-        if (!newName || newName.trim() === oldName) return;
-        const cleanName = newName.trim();
+    function openTagKeywordModal(tagName) {
+        tagKeywordEditTarget = tagName;
+        document.getElementById('tagKeywordOldNameInput').value = tagName;
+        document.getElementById('tagKeywordNameInput').value = tagName;
+        document.getElementById('tagKeywordTextInput').value = (tagKeywordRules[tagName] || []).join('\n');
+        openModal('tagKeywordModal');
+        setTimeout(() => document.getElementById('tagKeywordTextInput')?.focus(), 50);
+    }
+
+    async function renameTagTo(oldName, cleanName) {
         const changed = imagesData.filter(item => item.category === oldName);
         changed.forEach(item => item.category = cleanName);
         markRecordsChanged(changed);
@@ -1226,8 +1334,37 @@
         tagGroups.forEach(group => {
             group.tags = group.tags.map(tag => tag === oldName ? cleanName : tag);
         });
+        if (categoryCovers[oldName] && !categoryCovers[cleanName]) categoryCovers[cleanName] = categoryCovers[oldName];
+        if (oldName !== cleanName) delete categoryCovers[oldName];
+        if (tagKeywordRules[oldName] && !tagKeywordRules[cleanName]) tagKeywordRules[cleanName] = tagKeywordRules[oldName];
+        if (oldName !== cleanName) delete tagKeywordRules[oldName];
         if (appState.currentCategory === oldName) appState.currentCategory = cleanName;
+        await saveCategoryCovers();
+        await saveTagKeywordRules();
         await saveTagGroups();
+    }
+
+    async function renameTag(oldName) {
+        const newName = prompt('Rename tag', oldName);
+        if (!newName || newName.trim() === oldName) return;
+        await renameTagTo(oldName, newName.trim());
+        await loadData();
+    }
+
+    async function saveTagKeywordSettings() {
+        const oldName = document.getElementById('tagKeywordOldNameInput').value;
+        const cleanName = document.getElementById('tagKeywordNameInput').value.trim();
+        const keywords = parseTagKeywordText(document.getElementById('tagKeywordTextInput').value);
+        if (!oldName) return;
+        if (!cleanName) return alert('标签名称不能为空');
+        if (cleanName === '全部') return alert('不能使用“全部”作为标签名');
+        if (cleanName !== oldName) await renameTagTo(oldName, cleanName);
+        if (keywords.length) tagKeywordRules[cleanName] = keywords;
+        else delete tagKeywordRules[cleanName];
+        if (cleanName !== oldName) delete tagKeywordRules[oldName];
+        await saveTagKeywordRules();
+        closeModal('tagKeywordModal');
+        tagKeywordEditTarget = '';
         await loadData();
     }
 
@@ -1300,11 +1437,17 @@
             tags.forEach(tag => {
                 if (tag !== target) delete categoryCovers[tag];
             });
+            const mergedKeywords = tags.flatMap(tag => tagKeywordRules[tag] || []);
+            if (mergedKeywords.length) tagKeywordRules[target] = Array.from(new Set([...(tagKeywordRules[target] || []), ...mergedKeywords]));
+            tags.forEach(tag => {
+                if (tag !== target) delete tagKeywordRules[tag];
+            });
 
             if (mergeSet.has(appState.currentCategory)) appState.currentCategory = target;
             appState.selectedTags.clear();
             input.value = '';
             await saveCategoryCovers();
+            await saveTagKeywordRules();
             await saveTagGroups();
             await loadData();
         } finally {
@@ -2050,6 +2193,195 @@
         await renderGallery();
         updateBackupStatusButton();
         closeFileNameEditModal({ returnToPending: false });
+    }
+
+    function getKeywordClassifySourceItems() {
+        const scope = document.getElementById('keywordClassifyScopeSelect').value;
+        if (scope === 'selected') return imagesData.filter(item => appState.selectedIds.has(item.id));
+        if (scope === 'all') return imagesData;
+        return getCurrentViewItems();
+    }
+
+    function populateKeywordClassifyScopeOptions(preferredScope = 'current') {
+        const select = document.getElementById('keywordClassifyScopeSelect');
+        if (!select) return;
+        const options = [];
+        if (appState.selectedIds.size) options.push(['selected', `已选素材 (${appState.selectedIds.size})`]);
+        options.push(['current', `当前视图 (${getCurrentViewItems().length})`]);
+        options.push(['all', `全部素材 (${imagesData.length})`]);
+        select.innerHTML = options.map(([value, label]) => `<option value="${value}">${escapeHTML(label)}</option>`).join('');
+        select.value = options.some(([value]) => value === preferredScope) ? preferredScope : options[0]?.[0] || 'current';
+    }
+
+    function getKeywordClassifyFileName(item) {
+        return [item.originalFileName, item.zipPath, item.name]
+            .map(value => String(value || '').trim())
+            .filter(Boolean)
+            .join(' ');
+    }
+
+    function getKeywordRuleEntries() {
+        return Object.entries(tagKeywordRules)
+            .map(([category, keywords]) => ({
+                category,
+                keywords: parseTagKeywordText(Array.isArray(keywords) ? keywords.join('\n') : keywords)
+            }))
+            .filter(entry => entry.category && entry.keywords.length);
+    }
+
+    function matchKeywordRulesForItem(item, ruleEntries) {
+        const sourceName = getKeywordClassifyFileName(item);
+        const haystack = sourceName.toLowerCase();
+        if (!haystack) return [];
+        return ruleEntries.map(entry => {
+            const matchedKeywords = entry.keywords.filter(keyword => haystack.includes(keyword.toLowerCase()));
+            return matchedKeywords.length ? { category: entry.category, keywords: matchedKeywords } : null;
+        }).filter(Boolean);
+    }
+
+    function resetKeywordClassifyPreview(message = '还没有生成预览') {
+        keywordClassifyState.candidates = [];
+        keywordClassifyState.selectedIds.clear();
+        const list = document.getElementById('keywordClassifyList');
+        if (list) list.innerHTML = `<div class="filename-edit-empty">${escapeHTML(message)}</div>`;
+        updateKeywordClassifySummary();
+    }
+
+    function openKeywordClassifyModal(preferredScope = 'current') {
+        if (!imagesData.length) return alert('素材库里还没有素材');
+        populateKeywordClassifyScopeOptions(preferredScope);
+        resetKeywordClassifyPreview();
+        openModal('keywordClassifyModal');
+    }
+
+    function previewKeywordClassification() {
+        const ruleEntries = getKeywordRuleEntries();
+        if (!ruleEntries.length) return alert('请先长按标签，为至少一个标签填写匹配关键词');
+        const sourceItems = getKeywordClassifySourceItems();
+        const candidates = sourceItems.map(item => {
+            const matches = matchKeywordRulesForItem(item, ruleEntries);
+            if (!matches.length) return null;
+            return {
+                id: item.id,
+                item,
+                fileName: getKeywordClassifyFileName(item),
+                currentCategory: item.category || '',
+                matches,
+                targetCategory: matches[0].category
+            };
+        }).filter(Boolean);
+        keywordClassifyState.candidates = candidates;
+        keywordClassifyState.selectedIds = new Set(candidates.map(item => item.id));
+        renderKeywordClassifyPreview();
+    }
+
+    function updateKeywordClassifySummary() {
+        const summary = document.getElementById('keywordClassifySummary');
+        const confirmBtn = document.getElementById('keywordClassifyConfirmBtn');
+        const total = keywordClassifyState.candidates.length;
+        const selected = keywordClassifyState.selectedIds.size;
+        const conflicts = keywordClassifyState.candidates.filter(item => item.matches.length > 1).length;
+        if (summary) {
+            summary.textContent = total
+                ? `预览 ${total} 项，已选 ${selected} 项${conflicts ? `，其中 ${conflicts} 项命中多个标签` : ''}`
+                : '先生成预览，再确认分类。';
+        }
+        if (confirmBtn) {
+            confirmBtn.disabled = selected === 0;
+            confirmBtn.textContent = selected ? `确认分类 ${selected} 项` : '确认分类';
+        }
+    }
+
+    function getKeywordClassifyThumbHtml(candidate) {
+        const item = candidate.item;
+        if ((item.type || 'image') === 'zip') return '<div class="filename-edit-zip">ZIP</div>';
+        const url = getItemUrl(item, false, new Set(keywordClassifyState.candidates.map(entry => entry.id)));
+        const bgColor = normalizeBgChoice(item.bgColor || 'white');
+        const bgClass = bgColor === 'default' ? ' checkerboard-bg' : (bgColor === 'white' ? ' white-bg' : '');
+        const bgStyle = bgColor === 'black' ? ' style="background-color:#000000;"' : '';
+        return `<img class="filename-edit-thumb${bgClass}" src="${url}" loading="lazy" decoding="async" onclick="previewKeywordClassifyCandidate('${jsString(item.id)}', event)"${bgStyle}>`;
+    }
+
+    function renderKeywordClassifyPreview() {
+        const list = document.getElementById('keywordClassifyList');
+        if (!list) return;
+        const candidates = keywordClassifyState.candidates;
+        if (!candidates.length) {
+            list.innerHTML = '<div class="filename-edit-empty">没有匹配到关键词的文件名</div>';
+            updateKeywordClassifySummary();
+            return;
+        }
+        list.innerHTML = candidates.map(candidate => {
+            const selected = keywordClassifyState.selectedIds.has(candidate.id);
+            const matchText = candidate.matches.map(match => `${match.category}：${match.keywords.join('、')}`).join('；');
+            const options = candidate.matches.map(match => {
+                const isSelected = candidate.targetCategory === match.category ? 'selected' : '';
+                return `<option value="${escapeHTML(match.category)}" ${isSelected}>${escapeHTML(match.category)}</option>`;
+            }).join('');
+            return `
+                <div class="keyword-classify-row ${selected ? '' : 'skipped'}" onclick="toggleKeywordClassifySelection('${jsString(candidate.id)}')">
+                    <input class="filename-edit-check" type="checkbox" ${selected ? 'checked' : ''} onclick="event.stopPropagation(); toggleKeywordClassifySelection('${jsString(candidate.id)}')">
+                    ${getKeywordClassifyThumbHtml(candidate)}
+                    <div class="filename-edit-info">
+                        <div class="filename-edit-new" title="${escapeHTML(candidate.fileName)}">${escapeHTML(candidate.fileName || candidate.item.name || '素材')}</div>
+                        <div class="keyword-classify-meta" title="${escapeHTML(matchText)}">当前：${escapeHTML(candidate.currentCategory || '未分类')} · 命中：${escapeHTML(matchText)}</div>
+                        <div class="keyword-classify-target">
+                            <span>归为</span>
+                            <select onclick="event.stopPropagation()" onchange="updateKeywordClassifyTarget('${jsString(candidate.id)}', this.value)">
+                                ${options}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        updateKeywordClassifySummary();
+    }
+
+    function toggleKeywordClassifySelection(id) {
+        if (keywordClassifyState.selectedIds.has(id)) keywordClassifyState.selectedIds.delete(id);
+        else keywordClassifyState.selectedIds.add(id);
+        renderKeywordClassifyPreview();
+    }
+
+    function selectAllKeywordClassifyCandidates() {
+        keywordClassifyState.selectedIds = new Set(keywordClassifyState.candidates.map(item => item.id));
+        renderKeywordClassifyPreview();
+    }
+
+    function clearKeywordClassifySelection() {
+        keywordClassifyState.selectedIds.clear();
+        renderKeywordClassifyPreview();
+    }
+
+    function updateKeywordClassifyTarget(id, category) {
+        const candidate = keywordClassifyState.candidates.find(item => item.id === id);
+        if (candidate) candidate.targetCategory = category;
+        updateKeywordClassifySummary();
+    }
+
+    function previewKeywordClassifyCandidate(id, event) {
+        if (event) event.stopPropagation();
+        const candidate = keywordClassifyState.candidates.find(item => item.id === id);
+        if (!candidate || (candidate.item.type || 'image') === 'zip') return;
+        openImageViewer(getItemUrl(candidate.item, true), candidate.item.bgColor || 'white');
+    }
+
+    async function applyKeywordClassification() {
+        const selected = keywordClassifyState.candidates.filter(item => keywordClassifyState.selectedIds.has(item.id));
+        if (!selected.length) return alert('请先选择要分类的素材');
+        const changed = selected.filter(candidate => candidate.targetCategory && candidate.item.category !== candidate.targetCategory);
+        if (!changed.length) return alert('选中的素材已经在目标分类中');
+        if (!confirm(`确定按预览分类 ${changed.length} 个素材吗？`)) return;
+        changed.forEach(candidate => {
+            candidate.item.category = candidate.targetCategory;
+        });
+        const records = markRecordsChanged(changed.map(candidate => candidate.item));
+        await saveRecords(records);
+        appState.selectedIds.clear();
+        closeModal('keywordClassifyModal');
+        if (appState.isBatchMode) exitBatchMode();
+        await loadData();
     }
 
     function selectCategory(cat) {
@@ -4535,6 +4867,14 @@
         releaseUnusedObjectUrls(galleryVisibleIds);
     }
 
+    function clearKeywordClassifyState() {
+        keywordClassifyState = { candidates: [], selectedIds: new Set() };
+        const list = document.getElementById('keywordClassifyList');
+        if (list) list.innerHTML = '<div class="filename-edit-empty">还没有生成预览</div>';
+        releaseUnusedObjectUrls(galleryVisibleIds);
+        updateKeywordClassifySummary();
+    }
+
     
     function closeModal(modalId, options = {}) { 
         document.getElementById(modalId).classList.remove('active'); 
@@ -4569,6 +4909,9 @@
         if (modalId === 'unbackedModal') {
             clearUnbackedRenderCache();
         }
+        if (modalId === 'keywordClassifyModal') {
+            clearKeywordClassifyState();
+        }
     }
     
     function closeAllOverlays(options = {}) { 
@@ -4581,6 +4924,7 @@
             if (m.id === 'layoutModal') clearLayoutRenderCache();
             if (m.id === 'categoryCoverModal') clearCategoryCoverRenderCache();
             if (m.id === 'unbackedModal') clearUnbackedRenderCache();
+            if (m.id === 'keywordClassifyModal') clearKeywordClassifyState();
             m.classList.remove('active');
             if (m.id === 'addModal') closeModal('addModal'); // 确保走清理逻辑
             if (m.id === 'duplicateCheckModal' && m.classList.contains('active')) clearDuplicateCheckCache();

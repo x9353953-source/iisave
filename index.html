@@ -119,7 +119,8 @@
         }
         .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-sub); font-size: 16px; }
         .search-input { width: 100%; font-size: 14px; color: var(--text-main); }
-        .pending-continue-btn { width: 100%; margin-top: 10px; color: var(--primary-color); background: #edeef9; }
+        .toolbar-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+        .pending-continue-btn { width: 100%; min-width: 0; color: var(--primary-color); background: #edeef9; font-size: 13px; padding: 9px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .filters-row { display: flex; justify-content: flex-end; align-items: center; gap: 20px; margin-top: 12px; color: var(--text-sub); font-size: 13px; }
         .filter-item { display: flex; align-items: center; gap: 8px; }
 
@@ -388,9 +389,11 @@
             <span class="search-icon">🔍</span>
             <input type="text" id="searchInput" class="search-input" placeholder="搜索名称、标签..." oninput="debounceRender()">
         </div>
-        <button class="btn-secondary pending-continue-btn" onclick="openFileNameEditModal('library')">编辑文件名</button>
-        <button class="btn-secondary pending-continue-btn" onclick="openKeywordClassifyModal()">关键词分类</button>
-        <button class="btn-secondary pending-continue-btn" id="continueUnclassifiedBtn" onclick="openStoredUnclassifiedZipModal()" style="display: none;">继续保存未分类的</button>
+        <div class="toolbar-actions">
+            <button class="btn-secondary pending-continue-btn" onclick="openFileNameEditModal('library')">编辑文件名</button>
+            <button class="btn-secondary pending-continue-btn" onclick="openKeywordClassifyModal()">关键词分类</button>
+            <button class="btn-secondary pending-continue-btn" id="continueUnclassifiedBtn" onclick="openStoredUnclassifiedZipModal()" style="display: none;">继续分类</button>
+        </div>
         <div class="preview-mode-toggle" id="previewModeToggle">
             <button class="preview-mode-btn active" id="itemsPreviewBtn" onclick="setPreviewMode('items')">图片预览</button>
             <button class="preview-mode-btn" id="tagsPreviewBtn" onclick="setPreviewMode('tags')">标签预览</button>

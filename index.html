@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <script defer src="https://cloud.umami.is/script.js" data-website-id="e258b4e2-fcc6-4671-8a2c-c5a17969bf3d"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>ii</title>
@@ -233,8 +232,23 @@
         .zip-pending-bg-label { flex: 0 0 auto; font-size: 11px; color: var(--text-sub); }
         .zip-pending-bg-select { width: 132px; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--border-color); background: #f5f6f8; color: var(--text-main); font-size: 12px; }
         .zip-pending-spacer { height: 0; }
+        .filename-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .filename-edit-panel { border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; max-height: min(46vh, 420px); overflow-y: auto; }
+        .filename-edit-row { display: grid; grid-template-columns: 28px 58px minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); background: #fff; cursor: pointer; }
+        .filename-edit-row:last-child { border-bottom: none; }
+        .filename-edit-row.skipped { opacity: 0.5; }
+        .filename-edit-check { width: 18px; height: 18px; accent-color: var(--primary-color); }
+        .filename-edit-thumb { width: 58px; height: 58px; object-fit: contain; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: #fff; cursor: zoom-in; }
+        .filename-edit-zip { width: 58px; height: 58px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: #fff; font-weight: 800; color: var(--text-sub); }
+        .filename-edit-info { min-width: 0; display: grid; gap: 4px; }
+        .filename-edit-old, .filename-edit-new { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+        .filename-edit-old { color: var(--text-sub); text-decoration: line-through; }
+        .filename-edit-new { color: var(--text-main); font-weight: 700; }
+        .filename-edit-empty { padding: 18px; text-align: center; color: var(--text-sub); font-size: 13px; }
+        .filename-edit-hint { margin-top: 8px; color: var(--text-sub); font-size: 12px; line-height: 1.5; }
         @media (max-width: 520px) {
             .modal-dialog.modal-wide { width: 94%; padding: 18px; }
+            .filename-edit-grid { grid-template-columns: 1fr; }
             .zip-pending-row { grid-template-columns: 24px minmax(96px, 124px) minmax(0, 1fr); gap: 10px; padding: 10px; }
         }
         .recent-deleted-list { max-height: 420px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; }
@@ -362,6 +376,7 @@
             <span class="search-icon">🔍</span>
             <input type="text" id="searchInput" class="search-input" placeholder="搜索名称、标签..." oninput="debounceRender()">
         </div>
+        <button class="btn-secondary pending-continue-btn" onclick="openFileNameEditModal('library')">编辑文件名</button>
         <button class="btn-secondary pending-continue-btn" id="continueUnclassifiedBtn" onclick="openStoredUnclassifiedZipModal()" style="display: none;">继续保存未分类的</button>
         <div class="preview-mode-toggle" id="previewModeToggle">
             <button class="preview-mode-btn active" id="itemsPreviewBtn" onclick="setPreviewMode('items')">图片预览</button>
@@ -405,6 +420,7 @@
         <span id="selectedCount" style="font-weight: 600; color: var(--text-main); font-size: 14px;">已选 0 项</span>
         <div class="batch-actions" style="display: flex; gap: 8px;">
             <button class="btn-secondary" style="background: #34c759; color: white;" onclick="openBatchCategoryModal()">分类</button>
+            <button class="btn-secondary" onclick="openFileNameEditModal('library')">改名</button>
             <button class="btn-secondary" id="batchDownloadBtn" style="background: var(--primary-color); color: white;" onclick="batchDownload()">下载</button>
             <button class="btn-batch-del" onclick="batchDelete()">删除</button>
         </div>
@@ -526,6 +542,43 @@
         <div class="modal-actions">
             <button class="modal-btn btn-cancel" onclick="closeModal('batchCategoryModal')">取消</button>
             <button class="modal-btn btn-confirm" onclick="applyBatchCategory()">确认分类</button>
+        </div>
+    </div>
+
+    <div class="modal-dialog modal-md modal-wide" id="fileNameEditModal">
+        <div class="modal-header-row">
+            <div>
+                <div class="modal-title">编辑文件名</div>
+                <div class="zip-pending-stats" id="fileNameEditSummary">填写规则后先预览，再确认修改。</div>
+            </div>
+            <button class="btn-icon" onclick="closeFileNameEditModal()" style="font-size: 22px;">×</button>
+        </div>
+        <div class="filename-edit-grid">
+            <div class="form-group">
+                <label class="form-label">剔除连续几位数字</label>
+                <input type="number" id="fileNameDigitInput" class="form-input" min="0" step="1" placeholder="例如 6，只剔除连续 6 位数字">
+            </div>
+            <div class="form-group">
+                <label class="form-label">剔除文字</label>
+                <textarea id="fileNameTextInput" class="form-input" rows="2" style="resize: vertical;" placeholder="多个文字可用逗号或换行分隔"></textarea>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">处理范围</label>
+            <select class="form-input" id="fileNameScopeSelect"></select>
+            <div class="filename-edit-hint">只会改素材显示名称，不会改原始文件数据；没有匹配到规则的名称会自动保留。</div>
+        </div>
+        <div class="zip-pending-tools">
+            <button class="btn-secondary" onclick="previewFileNameEdits()">生成预览</button>
+            <button class="btn-secondary" onclick="selectAllFileNameEditCandidates()">全选预览</button>
+            <button class="btn-secondary" onclick="clearFileNameEditSelection()">取消选择</button>
+        </div>
+        <div class="filename-edit-panel" id="fileNameEditList">
+            <div class="filename-edit-empty">还没有生成预览</div>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn btn-cancel" onclick="closeFileNameEditModal()">取消</button>
+            <button class="modal-btn btn-confirm" id="fileNameEditConfirmBtn" onclick="applyFileNameEdits()">确认修改</button>
         </div>
     </div>
 
@@ -724,6 +777,7 @@
             <button class="btn-secondary" onclick="selectVisiblePendingZip()">全选当前可见</button>
             <button class="btn-secondary" onclick="clearPendingZipSelection()">取消选择</button>
             <button class="btn-secondary" onclick="clearPendingZipSearch()">清空搜索</button>
+            <button class="btn-secondary" onclick="openFileNameEditModal('pendingZip')">编辑文件名</button>
         </div>
         <div class="zip-pending-list" id="zipPendingList" onscroll="scheduleRenderPendingZipList()"></div>
         <div class="form-group" style="margin-top: 16px;">
@@ -820,6 +874,7 @@
     let galleryImageObserver = null;
     let uploadPreviewFrame = 0;
     let pendingZipRenderFrame = 0;
+    let fileNameEditState = { source: 'library', candidates: [], selectedIds: new Set() };
     let isBatchDownloading = false;
     
     // 记录上一次选定的统一底色
@@ -1765,6 +1820,207 @@
             renderGallery();
             closeModal('renameModal');
         }
+    }
+
+    function escapeRegExp(value) {
+        return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function parseFileNameRemovalTexts(value) {
+        return Array.from(new Set(String(value || '')
+            .split(/[\n,，]+/)
+            .map(item => item.trim())
+            .filter(Boolean)));
+    }
+
+    function cleanFileNameByRules(name, rules) {
+        let result = String(name || '');
+        if (rules.digitLength > 0) {
+            result = result.replace(/\d+/g, part => part.length === rules.digitLength ? '' : part);
+        }
+        rules.texts.forEach(text => {
+            result = result.replace(new RegExp(escapeRegExp(text), 'g'), '');
+        });
+        return result.replace(/\s{2,}/g, ' ').trim();
+    }
+
+    function getFileNameEditRules() {
+        const digitLength = parseInt(document.getElementById('fileNameDigitInput').value, 10);
+        return {
+            digitLength: Number.isFinite(digitLength) && digitLength > 0 ? digitLength : 0,
+            texts: parseFileNameRemovalTexts(document.getElementById('fileNameTextInput').value)
+        };
+    }
+
+    function getFileNameEditSourceItems() {
+        const scope = document.getElementById('fileNameScopeSelect').value;
+        if (fileNameEditState.source === 'pendingZip') {
+            if (scope === 'selected') {
+                return pendingZipRecords.filter(item => pendingZipSelectedIds.has(item.id));
+            }
+            if (scope === 'filtered') return getFilteredPendingZipRecords();
+            return pendingZipRecords;
+        }
+        if (scope === 'selected') {
+            return imagesData.filter(item => appState.selectedIds.has(item.id));
+        }
+        if (scope === 'all') return imagesData;
+        return getCurrentViewItems();
+    }
+
+    function populateFileNameScopeOptions(source) {
+        const select = document.getElementById('fileNameScopeSelect');
+        const options = [];
+        if (source === 'pendingZip') {
+            if (pendingZipSelectedIds.size) options.push(['selected', `已选待分类图片 (${pendingZipSelectedIds.size})`]);
+            if (pendingZipSearchQuery) options.push(['filtered', `当前搜索结果 (${getFilteredPendingZipRecords().length})`]);
+            options.push(['all', `全部待分类图片 (${pendingZipRecords.length})`]);
+        } else {
+            if (appState.selectedIds.size) options.push(['selected', `已选素材 (${appState.selectedIds.size})`]);
+            options.push(['current', `当前视图 (${getCurrentViewItems().length})`]);
+            options.push(['all', `全部素材 (${imagesData.length})`]);
+        }
+        select.innerHTML = options.map(([value, label]) => `<option value="${value}">${escapeHTML(label)}</option>`).join('');
+        select.value = options[0]?.[0] || 'all';
+    }
+
+    function resetFileNameEditPreview(message = '还没有生成预览') {
+        fileNameEditState.candidates = [];
+        fileNameEditState.selectedIds.clear();
+        const list = document.getElementById('fileNameEditList');
+        if (list) list.innerHTML = `<div class="filename-edit-empty">${escapeHTML(message)}</div>`;
+        updateFileNameEditSummary();
+    }
+
+    function openFileNameEditModal(source = 'library') {
+        if (source === 'pendingZip' && !pendingZipRecords.length) return alert('没有待分类图片');
+        if (source !== 'pendingZip' && !imagesData.length) return alert('素材库里还没有素材');
+        fileNameEditState = { source, candidates: [], selectedIds: new Set() };
+        document.getElementById('fileNameDigitInput').value = '';
+        document.getElementById('fileNameTextInput').value = '';
+        populateFileNameScopeOptions(source);
+        resetFileNameEditPreview();
+        openModal('fileNameEditModal', { keepPending: true });
+    }
+
+    function closeFileNameEditModal(options = {}) {
+        const shouldReturnToPending = fileNameEditState.source === 'pendingZip' && options.returnToPending !== false && pendingZipRecords.length;
+        closeModal('fileNameEditModal', { keepPending: true });
+        fileNameEditState = { source: 'library', candidates: [], selectedIds: new Set() };
+        if (shouldReturnToPending) openPendingZipModal();
+    }
+
+    function previewFileNameEdits() {
+        const rules = getFileNameEditRules();
+        if (!rules.digitLength && !rules.texts.length) return alert('请先填写要剔除的数字位数或文字');
+        const sourceItems = getFileNameEditSourceItems();
+        const candidates = sourceItems.map(item => {
+            const oldName = String(item.name || '').trim();
+            const newName = cleanFileNameByRules(oldName, rules);
+            return { id: item.id, item, oldName, newName };
+        }).filter(entry => entry.oldName && entry.newName && entry.newName !== entry.oldName);
+        fileNameEditState.candidates = candidates;
+        fileNameEditState.selectedIds = new Set(candidates.map(item => item.id));
+        renderFileNameEditPreview();
+    }
+
+    function updateFileNameEditSummary() {
+        const summary = document.getElementById('fileNameEditSummary');
+        const confirmBtn = document.getElementById('fileNameEditConfirmBtn');
+        const total = fileNameEditState.candidates.length;
+        const selected = fileNameEditState.selectedIds.size;
+        if (summary) {
+            summary.textContent = total ? `预览 ${total} 项，将修改 ${selected} 项；取消勾选可跳过。` : '填写规则后先预览，再确认修改。';
+        }
+        if (confirmBtn) {
+            confirmBtn.disabled = selected === 0;
+            confirmBtn.textContent = selected ? `确认修改 ${selected} 项` : '确认修改';
+        }
+    }
+
+    function getFileNameEditThumbHtml(candidate) {
+        const item = candidate.item;
+        if ((item.type || 'image') === 'zip') return '<div class="filename-edit-zip">ZIP</div>';
+        let url = '';
+        if (fileNameEditState.source === 'pendingZip') {
+            if (!pendingZipThumbUrls.has(item.id)) pendingZipThumbUrls.set(item.id, URL.createObjectURL(item.data));
+            url = pendingZipThumbUrls.get(item.id);
+        } else {
+            url = getItemUrl(item, false, new Set(fileNameEditState.candidates.map(entry => entry.id)));
+        }
+        const bgColor = fileNameEditState.source === 'pendingZip' ? getPendingZipItemBg(item) : normalizeBgChoice(item.bgColor || 'white');
+        const bgClass = bgColor === 'default' ? ' checkerboard-bg' : (bgColor === 'white' ? ' white-bg' : '');
+        const bgStyle = bgColor === 'black' ? ' style="background-color:#000000;"' : '';
+        return `<img class="filename-edit-thumb${bgClass}" src="${url}" loading="lazy" decoding="async" onclick="previewFileNameEditCandidate('${jsString(item.id)}', event)"${bgStyle}>`;
+    }
+
+    function renderFileNameEditPreview() {
+        const list = document.getElementById('fileNameEditList');
+        if (!list) return;
+        const candidates = fileNameEditState.candidates;
+        if (!candidates.length) {
+            list.innerHTML = '<div class="filename-edit-empty">没有匹配到可修改的文件名</div>';
+            updateFileNameEditSummary();
+            return;
+        }
+        list.innerHTML = candidates.map(candidate => {
+            const selected = fileNameEditState.selectedIds.has(candidate.id);
+            return `
+                <div class="filename-edit-row ${selected ? '' : 'skipped'}" onclick="toggleFileNameEditSelection('${jsString(candidate.id)}')">
+                    <input class="filename-edit-check" type="checkbox" ${selected ? 'checked' : ''} onclick="event.stopPropagation(); toggleFileNameEditSelection('${jsString(candidate.id)}')">
+                    ${getFileNameEditThumbHtml(candidate)}
+                    <div class="filename-edit-info">
+                        <div class="filename-edit-old" title="${escapeHTML(candidate.oldName)}">${escapeHTML(candidate.oldName)}</div>
+                        <div class="filename-edit-new" title="${escapeHTML(candidate.newName)}">${escapeHTML(candidate.newName)}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        updateFileNameEditSummary();
+    }
+
+    function toggleFileNameEditSelection(id) {
+        if (fileNameEditState.selectedIds.has(id)) fileNameEditState.selectedIds.delete(id);
+        else fileNameEditState.selectedIds.add(id);
+        renderFileNameEditPreview();
+    }
+
+    function selectAllFileNameEditCandidates() {
+        fileNameEditState.selectedIds = new Set(fileNameEditState.candidates.map(item => item.id));
+        renderFileNameEditPreview();
+    }
+
+    function clearFileNameEditSelection() {
+        fileNameEditState.selectedIds.clear();
+        renderFileNameEditPreview();
+    }
+
+    function previewFileNameEditCandidate(id, event) {
+        if (event) event.stopPropagation();
+        const candidate = fileNameEditState.candidates.find(item => item.id === id);
+        if (!candidate || (candidate.item.type || 'image') === 'zip') return;
+        if (fileNameEditState.source === 'pendingZip') return previewPendingZipImage(id, event);
+        openImageViewer(getItemUrl(candidate.item, true), candidate.item.bgColor || 'white');
+    }
+
+    async function applyFileNameEdits() {
+        const selected = fileNameEditState.candidates.filter(item => fileNameEditState.selectedIds.has(item.id));
+        if (!selected.length) return alert('请先选择要修改的文件名');
+        if (!confirm(`确定按预览修改 ${selected.length} 个文件名吗？`)) return;
+        selected.forEach(candidate => {
+            candidate.item.name = candidate.newName;
+        });
+        if (fileNameEditState.source === 'pendingZip') {
+            renderPendingZipList();
+            closeFileNameEditModal({ returnToPending: true });
+            return;
+        }
+        const records = markRecordsChanged(selected.map(candidate => candidate.item));
+        await saveRecords(records);
+        rebuildImagesIndex();
+        await renderGallery();
+        updateBackupStatusButton();
+        closeFileNameEditModal({ returnToPending: false });
     }
 
     function selectCategory(cat) {

@@ -144,6 +144,17 @@
         .page-range-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .backup-warning { margin: 8px 0 12px; padding: 10px 12px; border-radius: var(--radius-md); background: #fff7e8; color: #9a5a00; font-size: 12px; line-height: 1.5; }
         .backup-safe { padding: 10px 12px; border-radius: var(--radius-md); background: #edf9f2; color: #237449; }
+        .backup-image-options { display: none; }
+        .backup-image-options.show { display: block; }
+        .backup-tag-panel { display: none; margin-top: -4px; }
+        .backup-tag-panel.show { display: block; }
+        .backup-tag-list { max-height: min(38vh, 320px); overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; }
+        .backup-tag-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border-color); background: #fff; cursor: pointer; }
+        .backup-tag-row:last-child { border-bottom: none; }
+        .backup-tag-row.selected { background: #f0f2ff; box-shadow: inset 3px 0 0 var(--primary-color); }
+        .backup-tag-check { width: 18px; height: 18px; accent-color: var(--primary-color); }
+        .backup-tag-name { min-width: 0; color: var(--text-main); font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .backup-tag-count { color: var(--text-sub); font-size: 12px; }
 
         .gallery-grid { 
             display: grid; 
@@ -666,7 +677,7 @@
             </div>
             <button class="btn-icon" onclick="closeModal('backupExportModal')" style="font-size: 22px;">×</button>
         </div>
-        <div class="form-group" style="margin-top: 16px;">
+        <div class="form-group" id="backupPageGroup" style="margin-top: 16px;">
             <label class="form-label">备份页数</label>
             <input type="number" id="backupPageInput" class="form-input" min="1" value="1" oninput="updateBackupExportAction()" onchange="updateBackupExportAction(true)">
         </div>
@@ -676,6 +687,30 @@
                 <option value="importable">可导入备份（保留标签和封面）</option>
                 <option value="images">图片文件包（其它 App 可解压查看）</option>
             </select>
+        </div>
+        <div class="backup-image-options" id="backupImageOptions">
+            <div class="form-group">
+                <label class="form-label">图片包范围</label>
+                <select class="form-input" id="backupImageScope" onchange="updateBackupExportAction(true)">
+                    <option value="current">当前视图</option>
+                    <option value="tags">选择标签</option>
+                </select>
+            </div>
+            <div class="form-group" id="backupImageSplitGroup">
+                <label class="form-label">标签导出方式</label>
+                <select class="form-input" id="backupImageSplit" onchange="updateBackupExportAction()">
+                    <option value="single">合并为一个 ZIP</option>
+                    <option value="byTag">每个标签单独 ZIP</option>
+                </select>
+            </div>
+        </div>
+        <div class="backup-tag-panel" id="backupTagPanel">
+            <div class="zip-pending-tools">
+                <input class="zip-pending-search" id="backupTagSearchInput" type="search" placeholder="搜索标签" oninput="renderBackupTagList()">
+                <button class="btn-secondary" onclick="selectAllBackupExportTags()">全选</button>
+                <button class="btn-secondary" onclick="clearBackupExportTags()">清空</button>
+            </div>
+            <div class="backup-tag-list" id="backupTagList"></div>
         </div>
         <div class="layout-summary" id="backupExportHint">将从当前视图第 1 页开始导出。</div>
         <div class="modal-actions">
@@ -953,6 +988,7 @@
     let galleryImageObserver = null;
     let uploadPreviewFrame = 0;
     let pendingZipRenderFrame = 0;
+    let backupExportTagSelection = new Set();
     let fileNameEditState = { source: 'library', candidates: [], selectedIds: new Set() };
     let tagKeywordRules = {};
     let tagKeywordEditTarget = '';
@@ -3918,51 +3954,189 @@
         return { manifest: JSON.parse(decoder.decode(manifestBytes)), files };
     }
 
+    function formatExportTimestamp(date = new Date()) {
+        const pad = value => String(value).padStart(2, '0');
+        return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+    }
+
+    function downloadZipBlob(blob, fileName) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function getBackupExportTagStats() {
+        const stats = new Map();
+        imagesData.forEach(item => {
+            const category = item.category || '未分类';
+            if (!stats.has(category)) stats.set(category, { category, count: 0, items: [] });
+            const stat = stats.get(category);
+            stat.count += 1;
+            stat.items.push(item);
+        });
+        return Array.from(stats.values()).sort((a, b) => String(a.category).localeCompare(String(b.category), 'zh-CN'));
+    }
+
+    function getDefaultBackupExportTags() {
+        const stats = getBackupExportTagStats();
+        const existingTags = new Set(stats.map(stat => stat.category));
+        if (existingTags.has(appState.currentCategory)) return [appState.currentCategory];
+        if (String(appState.currentCategory).startsWith('group:')) {
+            const group = tagGroups.find(item => item.id === String(appState.currentCategory).slice(6));
+            const groupTags = (group?.tags || []).filter(tag => existingTags.has(tag));
+            if (groupTags.length) return groupTags;
+        }
+        return stats.map(stat => stat.category);
+    }
+
+    function ensureBackupExportTagSelection() {
+        const existingTags = new Set(getBackupExportTagStats().map(stat => stat.category));
+        backupExportTagSelection = new Set(Array.from(backupExportTagSelection).filter(tag => existingTags.has(tag)));
+        if (!backupExportTagSelection.size) {
+            backupExportTagSelection = new Set(getDefaultBackupExportTags());
+        }
+    }
+
+    function getSelectedBackupTagStats() {
+        const selected = new Set(backupExportTagSelection);
+        return getBackupExportTagStats().filter(stat => selected.has(stat.category));
+    }
+
+    function renderBackupTagList(skipActionUpdate = false) {
+        const list = document.getElementById('backupTagList');
+        if (!list) return;
+        const query = (document.getElementById('backupTagSearchInput')?.value || '').toLowerCase().trim();
+        const stats = getBackupExportTagStats().filter(stat => !query || String(stat.category).toLowerCase().includes(query));
+        if (!stats.length) {
+            list.innerHTML = '<div class="recent-deleted-empty">没有匹配的标签</div>';
+            if (!skipActionUpdate) updateBackupExportAction();
+            return;
+        }
+        list.innerHTML = stats.map(stat => {
+            const selected = backupExportTagSelection.has(stat.category);
+            return `
+                <label class="backup-tag-row ${selected ? 'selected' : ''}">
+                    <input class="backup-tag-check" type="checkbox" ${selected ? 'checked' : ''} onchange="toggleBackupExportTag('${jsString(stat.category)}', this.checked)">
+                    <span class="backup-tag-name" title="${escapeHTML(stat.category)}">${escapeHTML(stat.category)}</span>
+                    <span class="backup-tag-count">${stat.count} 项</span>
+                </label>
+            `;
+        }).join('');
+        if (!skipActionUpdate) updateBackupExportAction();
+    }
+
+    function toggleBackupExportTag(category, checked) {
+        if (checked) backupExportTagSelection.add(category);
+        else backupExportTagSelection.delete(category);
+        renderBackupTagList();
+    }
+
+    function selectAllBackupExportTags() {
+        const query = (document.getElementById('backupTagSearchInput')?.value || '').toLowerCase().trim();
+        getBackupExportTagStats()
+            .filter(stat => !query || String(stat.category).toLowerCase().includes(query))
+            .forEach(stat => backupExportTagSelection.add(stat.category));
+        renderBackupTagList();
+    }
+
+    function clearBackupExportTags() {
+        backupExportTagSelection.clear();
+        renderBackupTagList();
+    }
+
     function getBackupExportState() {
-        const items = getCurrentViewItems();
+        const mode = document.getElementById('backupExportMode')?.value || 'importable';
+        const imageScope = document.getElementById('backupImageScope')?.value || 'current';
+        const imageSplit = document.getElementById('backupImageSplit')?.value || 'single';
+        const selectedTagStats = mode === 'images' && imageScope === 'tags' ? getSelectedBackupTagStats() : [];
+        const items = mode === 'images' && imageScope === 'tags'
+            ? selectedTagStats.flatMap(stat => stat.items)
+            : getCurrentViewItems();
         const totalItems = items.length;
         const totalPages = Math.ceil(totalItems / appState.itemsPerPage) || 0;
         const input = document.getElementById('backupPageInput');
-        const mode = document.getElementById('backupExportMode')?.value || 'importable';
         let pageCount = parseInt(input?.value, 10);
         if (!Number.isFinite(pageCount) || pageCount < 1) pageCount = totalPages;
         if (totalPages > 0) pageCount = Math.min(pageCount, totalPages);
-        const itemCount = Math.min(pageCount * appState.itemsPerPage, totalItems);
-        return { items, totalItems, totalPages, pageCount, itemCount, mode };
+        const itemCount = mode === 'images' && imageScope === 'tags'
+            ? totalItems
+            : Math.min(pageCount * appState.itemsPerPage, totalItems);
+        const exportItems = items.slice(0, itemCount);
+        return { items, exportItems, totalItems, totalPages, pageCount, itemCount, mode, imageScope, imageSplit, selectedTagStats };
     }
 
     function updateBackupExportAction(writeValue = false) {
-        const { totalItems, totalPages, pageCount, itemCount, mode } = getBackupExportState();
+        const currentMode = document.getElementById('backupExportMode')?.value || 'importable';
+        const currentScope = document.getElementById('backupImageScope')?.value || 'current';
+        if (writeValue && currentMode === 'images' && currentScope === 'tags' && !backupExportTagSelection.size) {
+            ensureBackupExportTagSelection();
+        }
+        const { totalItems, totalPages, pageCount, itemCount, mode, imageScope, imageSplit, selectedTagStats } = getBackupExportState();
         const input = document.getElementById('backupPageInput');
         const summary = document.getElementById('backupExportSummary');
         const hint = document.getElementById('backupExportHint');
         const confirmBtn = document.getElementById('backupExportConfirmBtn');
+        const pageGroup = document.getElementById('backupPageGroup');
+        const imageOptions = document.getElementById('backupImageOptions');
+        const splitGroup = document.getElementById('backupImageSplitGroup');
+        const tagPanel = document.getElementById('backupTagPanel');
+        const isImageMode = mode === 'images';
+        const isTagScope = isImageMode && imageScope === 'tags';
+        pageGroup?.classList.toggle('backup-image-options', isTagScope);
+        pageGroup?.classList.toggle('show', !isTagScope);
+        imageOptions?.classList.toggle('show', isImageMode);
+        splitGroup?.classList.toggle('backup-image-options', !isTagScope);
+        splitGroup?.classList.toggle('show', isTagScope);
+        tagPanel?.classList.toggle('show', isTagScope);
         if (input) {
             input.max = totalPages || 1;
-            if (writeValue && totalPages > 0) input.value = pageCount;
+            input.disabled = isTagScope;
+            if (writeValue && totalPages > 0 && !isTagScope) input.value = pageCount;
         }
-        if (summary) summary.textContent = `当前视图共 ${totalItems} 项，每页 ${appState.itemsPerPage} 项，共 ${totalPages} 页`;
+        if (summary) {
+            summary.textContent = isTagScope
+                ? `已选 ${selectedTagStats.length} 个标签，共 ${totalItems} 项`
+                : `当前视图共 ${totalItems} 项，每页 ${appState.itemsPerPage} 项，共 ${totalPages} 页`;
+        }
         if (hint) {
-            const modeText = mode === 'images'
-                ? '将导出为按标签分文件夹的图片文件包，适合在其它 App 解压查看，不能直接作为备份导入。'
+            const modeText = isImageMode
+                ? '将导出为带总文件夹、并按标签分子文件夹的图片文件包，适合在百度、夸克等网盘解压查看。'
                 : '将导出为可导入备份，保留标签、封面和素材数据，可用“导入合并”恢复。';
-            hint.textContent = totalItems
-                ? `将从当前视图第 1 页开始导出前 ${pageCount} 页，共 ${itemCount} 项。${modeText}`
-                : '当前视图没有可导出的素材。';
+            if (!totalItems) {
+                hint.textContent = isTagScope ? '请先选择至少一个有素材的标签。' : '当前视图没有可导出的素材。';
+            } else if (isTagScope) {
+                const splitText = imageSplit === 'byTag' ? '每个标签会分别下载一个 ZIP。' : '会合并下载为一个 ZIP。';
+                hint.textContent = `将导出 ${selectedTagStats.length} 个标签，共 ${itemCount} 项。${splitText}${modeText}`;
+            } else {
+                hint.textContent = `将从当前视图第 1 页开始导出前 ${pageCount} 页，共 ${itemCount} 项。${modeText}`;
+            }
         }
         if (confirmBtn) {
             confirmBtn.disabled = totalItems === 0;
-            confirmBtn.textContent = totalItems ? `导出 ${pageCount} 页 / ${itemCount} 项` : '导出';
+            if (!totalItems) confirmBtn.textContent = '导出';
+            else if (isTagScope && imageSplit === 'byTag') confirmBtn.textContent = `导出 ${selectedTagStats.length} 个 ZIP`;
+            else if (isTagScope) confirmBtn.textContent = `导出 ${selectedTagStats.length} 标签 / ${itemCount} 项`;
+            else confirmBtn.textContent = `导出 ${pageCount} 页 / ${itemCount} 项`;
         }
+        if (isTagScope) renderBackupTagList(true);
     }
 
     function openBackupExportModal() {
         const items = getCurrentViewItems();
-        if (items.length === 0) return alert('无可导出数据');
+        if (items.length === 0 && imagesData.length === 0) return alert('无可导出数据');
         const totalPages = Math.ceil(items.length / appState.itemsPerPage) || 1;
         const input = document.getElementById('backupPageInput');
         input.value = totalPages;
         input.max = totalPages;
+        const searchInput = document.getElementById('backupTagSearchInput');
+        if (searchInput) searchInput.value = '';
+        ensureBackupExportTagSelection();
+        renderBackupTagList(true);
         openModal('backupExportModal');
         updateBackupExportAction(true);
         setTimeout(() => input?.focus(), 50);
@@ -3971,9 +4145,16 @@
     async function confirmBackupExport() {
         const state = getBackupExportState();
         if (state.totalItems === 0) return alert('无可导出数据');
+        if (state.mode === 'images' && state.imageScope === 'tags' && !state.selectedTagStats.length) {
+            return alert('请先选择要导出的标签');
+        }
         document.getElementById('backupPageInput').value = state.pageCount;
         closeModal('backupExportModal');
-        await exportData(state.items.slice(0, state.itemCount), state.mode);
+        if (state.mode === 'images' && state.imageScope === 'tags' && state.imageSplit === 'byTag') {
+            await exportImagePackagesByTag(state.selectedTagStats);
+            return;
+        }
+        await exportData(state.exportItems, state.mode);
     }
 
     function getPageRangeDeleteState() {
@@ -4211,70 +4392,110 @@
         return candidate;
     }
 
+    async function createImagePackageEntries(itemsToExport, rootFolder, progressBase = 0, progressScale = 1) {
+        const entries = [];
+        const usedPaths = new Set();
+        const cleanRoot = sanitizeExportPathPart(rootFolder || `图片包_${formatExportTimestamp()}`, '图片包');
+        for (let i = 0; i < itemsToExport.length; i++) {
+            const item = itemsToExport[i];
+            const folder = sanitizeExportPathPart(item.category || '未分类');
+            const basePath = `${cleanRoot}/${folder}`;
+            let wroteZipImages = false;
+            if ((item.type || 'image') === 'zip') {
+                const zipBlob = await dataToBlob(item.data, item.originalFileName || item.name || `ZIP-${i + 1}.zip`);
+                const zipImages = await parseZipImages(zipBlob);
+                if (zipImages.length) {
+                    const zipFolder = sanitizeExportPathPart(stripExt(item.originalFileName || item.name) || item.name || `ZIP-${i + 1}`, `ZIP-${i + 1}`);
+                    for (let j = 0; j < zipImages.length; j++) {
+                        const zipItem = zipImages[j];
+                        const fallbackName = `${zipItem.name || `图片-${j + 1}`}.${getExt(zipItem.path) || 'bin'}`;
+                        const imagePath = sanitizeExportRelativePath(zipItem.path, fallbackName);
+                        entries.push({ name: makeUniqueExportPath(`${basePath}/${zipFolder}/${imagePath}`, usedPaths), data: zipItem.blob });
+                    }
+                    wroteZipImages = true;
+                }
+            }
+            if (!wroteZipImages) {
+                const filePath = makeUniqueExportPath(`${basePath}/${getExportFileName(item, i)}`, usedPaths);
+                const blob = await dataToBlob(item.data, item.originalFileName || item.name || filePath);
+                entries.push({ name: filePath, data: blob });
+            }
+            if ((i + 1) % WORK_YIELD_INTERVAL === 0 || i === itemsToExport.length - 1) {
+                showTopProgress(progressBase + progressScale * (0.45 * ((i + 1) / Math.max(1, itemsToExport.length))));
+                await yieldToBrowser();
+            }
+        }
+        return entries;
+    }
+
+    async function exportImagePackage(itemsToExport, rootFolder, fileName, progressBase = 0, progressScale = 1) {
+        const entries = await createImagePackageEntries(itemsToExport, rootFolder, progressBase, progressScale);
+        if (!entries.length) throw new Error('没有可导出的图片文件');
+        const blob = await createBackupZip(entries, progress => {
+            const chunkRatio = progress.chunkTotal ? progress.chunkDone / progress.chunkTotal : 1;
+            const entryRatio = (progress.entryIndex + chunkRatio) / Math.max(1, progress.entryCount);
+            showTopProgress(progressBase + progressScale * (0.45 + entryRatio * 0.55));
+        });
+        downloadZipBlob(blob, fileName);
+    }
+
+    async function exportImagePackagesByTag(tagStats) {
+        if (!tagStats.length) return alert('请先选择要导出的标签');
+        showTopProgress(0);
+        await yieldToBrowser();
+        const timestamp = formatExportTimestamp();
+        try {
+            for (let i = 0; i < tagStats.length; i++) {
+                const stat = tagStats[i];
+                const safeTag = sanitizeExportPathPart(stat.category || '未分类');
+                const rootFolder = `${safeTag}_图片包_${timestamp}`;
+                const fileName = `${safeTag}_图片包_${timestamp}.zip`;
+                await exportImagePackage(stat.items, rootFolder, fileName, i / tagStats.length, 1 / tagStats.length);
+                if (i < tagStats.length - 1) await new Promise(resolve => setTimeout(resolve, DOWNLOAD_DELAY_MS));
+            }
+        } catch (err) {
+            console.error(err);
+            alert('导出失败：' + (err.message || '文件可能过大'));
+        } finally {
+            hideTopProgress();
+        }
+    }
+
     async function exportData(itemsToExport = imagesData, exportMode = 'importable') {
         if (!itemsToExport.length) return alert('无可导出数据');
         showTopProgress(0);
         await yieldToBrowser();
         try {
+            if (exportMode === 'images') {
+                const timestamp = formatExportTimestamp();
+                await exportImagePackage(itemsToExport, `图片包_${timestamp}`, `图片包_${timestamp}.zip`);
+                return;
+            }
             const manifestItems = [];
             const entries = [];
-            const usedPaths = new Set();
             for (let i = 0; i < itemsToExport.length; i++) {
                 const item = itemsToExport[i];
                 const ext = getExt(item.originalFileName || item.name) || ((item.type || 'image') === 'zip' ? 'zip' : 'bin');
                 let filePath = 'files/' + item.id + '.' + ext;
-                if (exportMode === 'images') {
-                    const folder = sanitizeExportPathPart(item.category || '未分类');
-                    if ((item.type || 'image') === 'zip') {
-                        const zipBlob = await dataToBlob(item.data, item.originalFileName || item.name || filePath);
-                        const zipImages = await parseZipImages(zipBlob);
-                        if (zipImages.length) {
-                            const zipFolder = sanitizeExportPathPart(stripExt(item.originalFileName || item.name) || item.name || `ZIP-${i + 1}`, `ZIP-${i + 1}`);
-                            for (let j = 0; j < zipImages.length; j++) {
-                                const zipItem = zipImages[j];
-                                const fallbackName = `${zipItem.name || `图片-${j + 1}`}.${getExt(zipItem.path) || 'bin'}`;
-                                const imagePath = sanitizeExportRelativePath(zipItem.path, fallbackName);
-                                entries.push({ name: makeUniqueExportPath(`${folder}/${zipFolder}/${imagePath}`, usedPaths), data: zipItem.blob });
-                            }
-                            if ((i + 1) % WORK_YIELD_INTERVAL === 0 || i === itemsToExport.length - 1) {
-                                setTopProgress(i + 1, itemsToExport.length, 0, 0.45);
-                                await yieldToBrowser();
-                            }
-                            continue;
-                        }
-                    }
-                    filePath = makeUniqueExportPath(`${folder}/${getExportFileName(item, i)}`, usedPaths);
-                }
                 const blob = await dataToBlob(item.data, item.originalFileName || item.name || filePath);
                 entries.push({ name: filePath, data: blob });
-                if (exportMode !== 'images') {
-                    const manifestItem = { ...item, data: filePath };
-                    delete manifestItem.blobUrl;
-                    manifestItems.push(manifestItem);
-                }
+                const manifestItem = { ...item, data: filePath };
+                delete manifestItem.blobUrl;
+                manifestItems.push(manifestItem);
                 if ((i + 1) % WORK_YIELD_INTERVAL === 0 || i === itemsToExport.length - 1) {
                     setTopProgress(i + 1, itemsToExport.length, 0, 0.45);
                     await yieldToBrowser();
                 }
             }
-            if (exportMode !== 'images') {
-                const manifest = { version: 2, exportedAt: new Date().toISOString(), items: manifestItems, tagGroups, categoryCovers };
-                entries.unshift({ name: 'manifest.json', data: new Blob([JSON.stringify(manifest)], { type: 'application/json' }) });
-            }
+            const manifest = { version: 2, exportedAt: new Date().toISOString(), items: manifestItems, tagGroups, categoryCovers };
+            entries.unshift({ name: 'manifest.json', data: new Blob([JSON.stringify(manifest)], { type: 'application/json' }) });
             const blob = await createBackupZip(entries, progress => {
                 const chunkRatio = progress.chunkTotal ? progress.chunkDone / progress.chunkTotal : 1;
                 const entryRatio = (progress.entryIndex + chunkRatio) / Math.max(1, progress.entryCount);
                 showTopProgress(0.45 + entryRatio * 0.55);
             });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = (exportMode === 'images' ? 'GalleryImages_' : 'GalleryBackup_') + Date.now() + '.zip';
-            a.click();
-            URL.revokeObjectURL(url);
-            if (exportMode !== 'images') {
-                await markRecordsBackedUp(itemsToExport);
-            }
+            downloadZipBlob(blob, 'GalleryBackup_' + Date.now() + '.zip');
+            await markRecordsBackedUp(itemsToExport);
         } catch (err) {
             console.error(err);
             alert('导出失败：' + (err.message || '文件可能过大'));

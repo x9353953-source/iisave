@@ -141,6 +141,12 @@
         .page-input-wrapper { display: flex; align-items: center; gap: 4px; font-size: 14px; color: var(--text-sub); }
         .page-input { width: 40px; text-align: center; border: 1px solid var(--border-color); border-radius: 6px; padding: 4px; font-size: 14px; color: var(--text-main); background: #fff; }
         .btn-batch-del { background: #ffecec; color: var(--danger-color); padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+        .batch-action-bar { justify-content: flex-start; gap: 8px; width: min(94%, 520px); max-width: 520px; padding: 10px 12px; border-radius: 24px; overflow: hidden; }
+        .batch-action-bar .btn-secondary,
+        .batch-action-bar .btn-batch-del { flex: 0 0 auto; min-width: 52px; min-height: 38px; padding: 8px 12px; border-radius: 18px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+        .batch-selected-count { flex: 0 0 auto; min-width: 64px; color: var(--text-main); font-size: 13px; font-weight: 700; line-height: 1.2; text-align: center; white-space: nowrap; }
+        .batch-actions { display: flex; gap: 8px; flex: 1 1 auto; min-width: 0; overflow-x: auto; padding: 2px 2px 4px; scrollbar-width: none; }
+        .batch-actions::-webkit-scrollbar { display: none; }
         .page-range-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .backup-warning { margin: 8px 0 12px; padding: 10px 12px; border-radius: var(--radius-md); background: #fff7e8; color: #9a5a00; font-size: 12px; line-height: 1.5; }
         .backup-safe { padding: 10px 12px; border-radius: var(--radius-md); background: #edf9f2; color: #237449; }
@@ -392,6 +398,11 @@
             .sidebar.editing .cat-pill.group { width: 100%; min-width: 0; max-width: 100%; min-height: 46px; padding: 8px 10px 8px 12px; }
             .group-pill-meta { gap: 5px; }
             .group-pill-arrow { width: 28px; height: 28px; }
+            .batch-action-bar { bottom: calc(14px + var(--safe-bottom)); width: calc(100% - 20px); max-width: none; padding: 8px 10px; gap: 6px; border-radius: 22px; }
+            .batch-action-bar .btn-secondary,
+            .batch-action-bar .btn-batch-del { min-width: 40px; min-height: 36px; padding: 7px 8px; font-size: 13px; }
+            .batch-selected-count { min-width: 48px; font-size: 12px; }
+            .batch-actions { gap: 4px; padding-bottom: 2px; }
         }
     </style>
 </head>
@@ -407,7 +418,7 @@
         </div>
         <div class="nav-right">
             <button class="btn-secondary" onclick="openLayoutModal()">排版</button>
-            <button class="btn-primary" onclick="openModal('addModal')">+ 新增记录</button>
+            <button class="btn-primary" onclick="openModal('addModal')">+ 添加图片</button>
         </div>
     </nav><div class="toolbar-container">
         <div class="search-box">
@@ -456,10 +467,10 @@
         <button id="nextPageBtn" class="btn-secondary" onclick="changePage(1)">下一页</button>
     </div>
 
-    <div id="batchActionBar" class="bottom-bar" style="justify-content: space-between; gap: 10px;">
+    <div id="batchActionBar" class="bottom-bar batch-action-bar">
         <button class="btn-secondary" onclick="exitBatchMode()">取消</button>
-        <span id="selectedCount" style="font-weight: 600; color: var(--text-main); font-size: 14px;">已选 0 项</span>
-        <div class="batch-actions" style="display: flex; gap: 8px;">
+        <span id="selectedCount" class="batch-selected-count">已选 0 项</span>
+        <div class="batch-actions">
             <button class="btn-secondary" style="background: #34c759; color: white;" onclick="openBatchCategoryModal()">分类</button>
             <button class="btn-secondary" onclick="openKeywordClassifyModal('selected')">关键词</button>
             <button class="btn-secondary" onclick="openFileNameEditModal('library')">改名</button>

@@ -274,12 +274,6 @@
             .modal-dialog.modal-wide { width: 94%; padding: 18px; }
             .filename-edit-grid { grid-template-columns: 1fr; }
             .zip-pending-row { grid-template-columns: 24px minmax(96px, 124px) minmax(0, 1fr); gap: 10px; padding: 10px; }
-            .sidebar { width: 92vw; padding-left: 12px; padding-right: 12px; }
-            .sidebar.editing { width: 96vw; }
-            .sidebar.editing .category-pills { padding: 10px; gap: 9px; }
-            .sidebar.editing .cat-pill.group { min-height: 46px; padding: 8px 10px 8px 12px; }
-            .group-pill-meta { gap: 5px; }
-            .group-pill-arrow { width: 28px; height: 28px; }
         }
         .recent-deleted-list { max-height: 420px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; }
         .recent-deleted-row { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border-color); background: #fff; }
@@ -336,9 +330,9 @@
         .cat-pill { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 8px 14px; background: #f5f6f8; color: #6b7280; border: 1px solid #eceef4; border-radius: 18px; font-size: 14px; font-weight: 650; line-height: 1.2; transition: transform 0.18s, box-shadow 0.18s, background 0.18s, color 0.18s; cursor: pointer; }
         .cat-pill:active { transform: scale(0.97); }
         .cat-pill.active { background: var(--primary-gradient); color: white; border-color: transparent; box-shadow: 0 8px 18px rgba(106, 117, 202, 0.25); }
-        .cat-pill.group { background: #eef8f2; color: #1f8f55; border-color: #d9efdf; justify-content: space-between; gap: 10px; text-align: left; }
+        .cat-pill.group { min-width: 0; max-width: 100%; background: #eef8f2; color: #1f8f55; border-color: #d9efdf; justify-content: space-between; gap: 10px; text-align: left; }
         .cat-pill.group.active { background: linear-gradient(135deg, #2fb56d, #1f8f55); color: white; border-color: transparent; box-shadow: 0 8px 18px rgba(31, 143, 85, 0.22); }
-        .group-pill-label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; }
+        .group-pill-label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; overflow: hidden; }
         .group-pill-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .group-pill-meta { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 12px; font-weight: 800; }
         .group-pill-count { opacity: 0.78; }
@@ -391,6 +385,14 @@
         .backup-btn.import { background: #2fb56d; color: #fff; }
         .privacy-content { display: grid; gap: 10px; color: var(--text-main); font-size: 14px; line-height: 1.65; user-select: text; }
         .privacy-content p { margin: 0; }
+        @media (max-width: 520px) {
+            .sidebar { width: 92vw; padding-left: 12px; padding-right: 12px; }
+            .sidebar.editing { width: 96vw; }
+            .sidebar.editing .category-pills { padding: 10px; gap: 9px; overflow-x: hidden; }
+            .sidebar.editing .cat-pill.group { width: 100%; min-width: 0; max-width: 100%; min-height: 46px; padding: 8px 10px 8px 12px; }
+            .group-pill-meta { gap: 5px; }
+            .group-pill-arrow { width: 28px; height: 28px; }
+        }
     </style>
 </head>
 <body><div class="top-progress" id="topProgress" aria-hidden="true"><div class="top-progress-bar" id="topProgressBar"></div></div><div class="loading-overlay" id="loadingOverlay">

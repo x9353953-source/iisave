@@ -274,6 +274,12 @@
             .modal-dialog.modal-wide { width: 94%; padding: 18px; }
             .filename-edit-grid { grid-template-columns: 1fr; }
             .zip-pending-row { grid-template-columns: 24px minmax(96px, 124px) minmax(0, 1fr); gap: 10px; padding: 10px; }
+            .sidebar { width: 92vw; padding-left: 12px; padding-right: 12px; }
+            .sidebar.editing { width: 96vw; }
+            .sidebar.editing .category-pills { padding: 10px; gap: 9px; }
+            .sidebar.editing .cat-pill.group { min-height: 46px; padding: 8px 10px 8px 12px; }
+            .group-pill-meta { gap: 5px; }
+            .group-pill-arrow { width: 28px; height: 28px; }
         }
         .recent-deleted-list { max-height: 420px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9f9fb; }
         .recent-deleted-row { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border-color); background: #fff; }
@@ -330,8 +336,14 @@
         .cat-pill { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 8px 14px; background: #f5f6f8; color: #6b7280; border: 1px solid #eceef4; border-radius: 18px; font-size: 14px; font-weight: 650; line-height: 1.2; transition: transform 0.18s, box-shadow 0.18s, background 0.18s, color 0.18s; cursor: pointer; }
         .cat-pill:active { transform: scale(0.97); }
         .cat-pill.active { background: var(--primary-gradient); color: white; border-color: transparent; box-shadow: 0 8px 18px rgba(106, 117, 202, 0.25); }
-        .cat-pill.group { background: #eef8f2; color: #1f8f55; border-color: #d9efdf; }
+        .cat-pill.group { background: #eef8f2; color: #1f8f55; border-color: #d9efdf; justify-content: space-between; gap: 10px; text-align: left; }
         .cat-pill.group.active { background: linear-gradient(135deg, #2fb56d, #1f8f55); color: white; border-color: transparent; box-shadow: 0 8px 18px rgba(31, 143, 85, 0.22); }
+        .group-pill-label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; }
+        .group-pill-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .group-pill-meta { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 12px; font-weight: 800; }
+        .group-pill-count { opacity: 0.78; }
+        .group-pill-arrow { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.72); box-shadow: inset 0 0 0 1px rgba(31, 143, 85, 0.12); line-height: 1; }
+        .cat-pill.group.active .group-pill-arrow { color: #1f8f55; background: rgba(255,255,255,0.95); }
         .cat-pill.manage-selected { box-shadow: 0 0 0 2px var(--primary-color) inset, 0 8px 16px rgba(106, 117, 202, 0.12); color: var(--primary-color); background: #fff; border-color: #cfd4fb; }
         .sidebar.editing .category-pills { flex: 1 1 360px; min-height: 320px; padding: 14px; gap: 11px; background: #fff; border-color: #dfe3fb; }
         .sidebar.editing .cat-pill:not(.group) { flex: 1 1 calc(50% - 11px); min-width: 124px; min-height: 42px; padding: 10px 12px; border-radius: var(--radius-md); }
@@ -767,16 +779,9 @@
         </div>
         <!-- 隐私说明内容在这里修改 -->
         <div class="privacy-content">
-            <p>这个工具一开始只是个人使用，为了更方便找适配水印用的，看到很多人想试试就分享啦。</p>
-            <p>还没有做成小程序 app 的打算，所以一切个人数据都是储存在自己的本地浏览器上。</p>
-            <p>所以现在不建议拿来当网盘，和打算一直储存水印在上面的想法。建议养成备份习惯，保存到网盘上。（在不清理浏览器缓存情况下，目前我用了几个月还没有数据丢失）</p>
-            <p>可保存数量取决于你的设备空间和浏览器限制。浏览器本地存储不等同于永久网盘，清理缓存、切换设备、重装浏览器或存储空间不足时可能导致数据丢失。重要文件请及时导出 ZIP 备份。</p>
-            <p>1. 图片和数据储存在你自己的浏览器上。所以在清理浏览器缓存和数据或其它情况，图片和数据可能会丢失，自行备份。</p>
-            <p>3. 请勿使用本工具处理、保存或传播违法违规、侵权、色情低俗或其他不当内容。你应对自己导入、整理、导出和分享的内容负责。</p>
-            <p>4. 可以提建议，如有想增加的功能或使用体验等等。</p>
-            <p>5. 因为每个人想要的功能不一样，所以可以找我定制一个自己想要的版本和功能和界面。</p>
-            <p>6. 不要过度借鉴和抄袭。</p>
-            <p>7. 最后还是要提醒养成备份习惯呀，因为数据储存在浏览器，图片数据可能会丢失。不会泄露图片。</p>
+            <p>图片和数据只储存在你当前使用的浏览器本地，不会上传图片，也不会流图。</p>
+            <p>浏览器本地存储不等同于网盘。清理缓存、切换设备、重装浏览器或设备空间不足时，数据都可能丢失。</p>
+            <p>重要素材请定期导出 ZIP 备份，并保存到自己的网盘或硬盘；换设备前也请先备份，再导入恢复。</p>
         </div>
         <div class="modal-actions">
             <button class="modal-btn btn-confirm" onclick="closeModal('privacyModal')">知道了</button>
@@ -1305,7 +1310,7 @@
         if (!appState.isSidebarEditMode) appState.selectedTags.clear();
         document.getElementById('sidebarTools').classList.toggle('show', appState.isSidebarEditMode);
         document.getElementById('sidebar').classList.toggle('editing', appState.isSidebarEditMode);
-        document.getElementById('sidebarEditBtn').innerText = appState.isSidebarEditMode ? 'Done' : 'Edit';
+        document.getElementById('sidebarEditBtn').innerText = appState.isSidebarEditMode ? '完成' : '编辑';
         updateCategoryUI();
     }
 
@@ -1579,7 +1584,7 @@
             const filterKey = `group:${group.id}`;
             const active = appState.currentCategory === filterKey ? 'active' : '';
             const expanded = appState.expandedGroupId === group.id;
-            pillsHtml += `<div class="cat-pill group ${active}" onmousedown="startTagPress('group','${jsString(group.id)}')" onmouseup="endTagPress()" onmouseleave="endTagPress()" ontouchstart="startTagPress('group','${jsString(group.id)}')" ontouchend="endTagPress()" ontouchcancel="endTagPress()" onclick="handleGroupClick('${jsString(group.id)}')">📁 ${escapeHTML(group.name)}${group.tags.length ? ` · ${group.tags.length}` : ''}</div>`;
+            pillsHtml += `<div class="cat-pill group ${active}" onmousedown="startTagPress('group','${jsString(group.id)}')" onmouseup="endTagPress()" onmouseleave="endTagPress()" ontouchstart="startTagPress('group','${jsString(group.id)}')" ontouchend="endTagPress()" ontouchcancel="endTagPress()" onclick="handleGroupClick('${jsString(group.id)}')"><span class="group-pill-label"><span>📁</span><span class="group-pill-name">${escapeHTML(group.name)}</span></span><span class="group-pill-meta">${group.tags.length ? `<span class="group-pill-count">${group.tags.length}</span>` : ''}<span class="group-pill-arrow">${expanded ? '收' : '展'}</span></span></div>`;
             if (expanded) {
                 const childTags = group.tags.length
                     ? group.tags.map(tag => {
